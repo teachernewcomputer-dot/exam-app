@@ -190,6 +190,7 @@ td,th{border:1px solid #000;padding:3px 6px;text-align:center}
   <div class="bar"><button id="backLib" class="ghost">← กลับไปคลัง</button>
     <div>
       <button id="detEdit">✏️ แก้ไขข้อสอบ</button>
+      <button id="detDoc">⬇ ดาวน์โหลด .doc</button>
       <button id="detPrint">พิมพ์ / บันทึก PDF</button>
       <button id="detDel" class="ghost" style="color:var(--bad);border-color:var(--bad)">ลบข้อสอบนี้</button>
     </div>
@@ -352,7 +353,14 @@ $('loadTopics').onclick=async()=>{
   $('loadTopics').disabled=true;$('loadTopics').textContent='กำลังค้นหา...';
   $('topicHint').textContent='';
   try{
-    const prompt=`คุณคือผู้เชี่ยวชาญหลักสูตรแกนกลางการศึกษาขั้นพื้นฐานของไทย ระบุหัวข้อ/ตัวชี้วัดที่นักเรียนชั้น${grade} ควรเรียนในวิชา${subject} จำนวน 8-14 หัวข้อ เรียงตามลำดับการเรียนในหลักสูตร เขียนสั้นกระชับเป็นภาษาไทย ตอบเป็น JSON เท่านั้น ห้ามมีข้อความอื่น: {"topics":["หัวข้อ 1","หัวข้อ 2"]}`;
+    const prompt=`คุณคือผู้เชี่ยวชาญหลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พุทธศักราช 2551 (ฉบับปรับปรุง พ.ศ. 2560 ในกลุ่มสาระที่มีการปรับปรุง เช่น วิทยาศาสตร์ คณิตศาสตร์ และวิทยาการคำนวณ) ของกระทรวงศึกษาธิการ
+ให้ระบุ "ตัวชี้วัดชั้นปี" ของวิชา${subject} ระดับชั้น${grade} ตามที่กำหนดไว้ในหลักสูตรแกนกลางฯ จำนวน 8-14 รายการ โดยเลือกตัวชี้วัดที่สำคัญและเหมาะกับการออกข้อสอบปรนัย เรียงตามสาระและมาตรฐานการเรียนรู้
+
+ข้อกำหนด:
+1. แต่ละรายการต้องขึ้นต้นด้วยรหัสตัวชี้วัดตามหลักสูตร เช่น "ว 1.1 ม.2/3" หรือ "ค 1.1 ม.1/2" ตามด้วยข้อความตัวชี้วัดแบบย่อให้กระชับ
+2. ใช้เฉพาะตัวชี้วัดที่มีอยู่จริงในหลักสูตรแกนกลางฯ ห้ามแต่งรหัสหรือตัวชี้วัดขึ้นเอง หากไม่แน่ใจรหัส ให้ระบุเฉพาะชื่อสาระ/มาตรฐานและเนื้อหาที่เรียนในชั้นนั้นแทน
+3. เขียนเป็นภาษาไทย
+ตอบเป็น JSON เท่านั้น ห้ามมีข้อความอื่น: {"topics":["ว 1.1 ม.2/1 ตัวชี้วัดแบบย่อ","ว 1.1 ม.2/2 ตัวชี้วัดแบบย่อ"]}`;
     const d=parseJSON(await callAI(prompt));
     const topics=Array.isArray(d.topics)?d.topics:[];
     if(!topics.length)throw new Error('ไม่พบหัวข้อจาก AI');
@@ -426,10 +434,12 @@ async function loadLib(){
   $('libList').innerHTML='<div class="empty">กำลังโหลด...</div>';
   try{
     libCache=await DB.list();
-    $('libList').innerHTML=libCache.length?libCache.map(e=>`<div class="card" data-o="${esc(e.id)}"><div><b>${esc(e.title||'แบบทดสอบ')}</b><br><small>วิชา${esc(e.meta.subject)} · ${esc(e.meta.grade)} · ${e.questions.length} ข้อ · ${e.meta.mode==='expert'?'เชี่ยวชาญ':'ตามหัวข้อ'} · ${new Date(e.created).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})}</small></div><div><button data-d="${esc(e.id)}">ลบ</button></div></div>`).join(''):'<div class="empty">ยังไม่มีข้อสอบในคลัง<br>สร้างข้อสอบแล้วระบบจะบันทึกให้อัตโนมัติ</div>';
+    $('libList').innerHTML=libCache.length?libCache.map(e=>`<div class="card" data-o="${esc(e.id)}"><div><b>${esc(e.title||'แบบทดสอบ')}</b><br><small>วิชา${esc(e.meta.subject)} · ${esc(e.meta.grade)} · ${e.questions.length} ข้อ · ${e.meta.mode==='expert'?'เชี่ยวชาญ':'ตามหัวข้อ'} · ${new Date(e.created).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})}</small></div><div><button data-w="${esc(e.id)}">⬇ .doc</button><button data-d="${esc(e.id)}">ลบ</button></div></div>`).join(''):'<div class="empty">ยังไม่มีข้อสอบในคลัง<br>สร้างข้อสอบแล้วระบบจะบันทึกให้อัตโนมัติ</div>';
   }catch(e){$('libList').innerHTML='<div class="msg err">โหลดคลังไม่สำเร็จ: '+esc(e.message)+'</div>'}
 }
 $('libList').onclick=async e=>{
+  const w=e.target.dataset.w;
+  if(w){e.stopPropagation();const ex=libCache.find(x=>x.id===w);if(ex)downloadDoc(ex,confirm('รวมเฉลยท้ายข้อสอบด้วยหรือไม่?\n(ตกลง = รวมเฉลย, ยกเลิก = ไม่รวม)'));return}
   const d=e.target.dataset.d;
   if(d){e.stopPropagation();if(confirm('ลบข้อสอบนี้ออกจากคลัง?')){try{await DB.del(d);loadLib()}catch(er){alert('ลบไม่สำเร็จ: '+er.message)}}return}
   const card=e.target.closest('.card');if(card){openDetail(card.dataset.o)}
@@ -529,6 +539,41 @@ async function openDetail(id){
 }
 $('backLib').onclick=()=>show('lib');
 $('detPrint').onclick=()=>window.print();
+
+// ---------- ดาวน์โหลดเป็นไฟล์ .doc ----------
+function downloadDoc(ex,withAns){
+  const o=ex.meta,n=ex.questions.length;
+  const title=ex.title||('แบบทดสอบวิชา'+o.subject);
+  let b=`<div style="text-align:center">${o.org?`<p><b>${esc(o.org)}</b></p>`:''}<h2>${esc(title)}</h2>
+  <p>วิชา${esc(o.subject)} ${esc(o.grade)}${o.term?` ภาคเรียนที่/ปีการศึกษา ${esc(o.term)}`:''}</p></div>
+  <table style="width:100%;border-collapse:collapse;border-top:1.5pt solid #000;border-bottom:1.5pt solid #000"><tr>
+  <td style="border:none;text-align:left">เวลา ${esc(o.time)} นาที</td><td style="border:none;text-align:center">จำนวน ${n} ข้อ</td><td style="border:none;text-align:right">คะแนนเต็ม ${n} คะแนน</td></tr></table>
+  <p>ชื่อ-สกุล ........................................................ ชั้น ................ เลขที่ ..........</p>
+  <p style="border:1pt solid #000;padding:4pt 8pt"><b>คำชี้แจง</b> ข้อสอบฉบับนี้เป็นแบบปรนัย ๔ ตัวเลือก มี ${n} ข้อ ข้อละ ๑ คะแนน ให้นักเรียนเลือกคำตอบที่ถูกต้องที่สุดเพียงข้อเดียว</p>`;
+  ex.questions.forEach((q,i)=>{
+    b+=`<p style="margin:10pt 0 2pt 0"><b>${i+1}.</b> ${esc(q.q)}</p>`+q.choices.map((c,j)=>`<p style="margin:0 0 0 28pt">${L[j]}. ${esc(clean(c))}</p>`).join('');
+  });
+  b+=`<p style="text-align:center;margin-top:16pt">--- หมดคำถาม ---</p>`;
+  if(withAns){
+    b+=`<br style="page-break-before:always;mso-break-type:page-break"><h2 style="text-align:center">เฉลยข้อสอบ</h2><p style="text-align:center">วิชา${esc(o.subject)} ${esc(o.grade)}</p>`;
+    for(let s=0;s<n;s+=10){
+      const part=ex.questions.slice(s,s+10);
+      b+=`<table style="width:100%;border-collapse:collapse;margin:8pt 0"><tr>${part.map((_,i)=>`<th style="border:1pt solid #000;padding:2pt 4pt">${s+i+1}</th>`).join('')}</tr><tr>${part.map(q=>`<td style="border:1pt solid #000;padding:2pt 4pt;text-align:center">${L[q.answer]}</td>`).join('')}</tr></table>`;
+    }
+    b+=`<p><b>เฉลยละเอียด</b></p>`+ex.questions.map((q,i)=>`<p style="margin:0 0 4pt 0"><b>ข้อ ${i+1}. ตอบ ${L[q.answer]}</b>${q.topic?` <i>(${esc(q.topic)})</i>`:''} — ${esc(q.explanation)}</p>`).join('');
+  }
+  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${esc(title)}</title>
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
+<style>@page{size:21cm 29.7cm;margin:2cm}body{font-family:'TH Sarabun New','Sarabun',Tahoma,sans-serif;font-size:16pt;line-height:1.3}p{margin:0 0 4pt 0}h2{font-size:20pt;margin:0 0 4pt 0}</style></head><body>${b}</body></html>`;
+  const blob=new Blob(['\ufeff',html],{type:'application/msword'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=(title.replace(/[\\/:*?"<>|]+/g,'_').trim()||'exam')+'.doc';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+$('detDoc').onclick=()=>{if(!curEdit)return;const c=$('chkAns2');downloadDoc(curEdit,c?c.checked:true)};
+
 $('detDel').onclick=async()=>{
   if(!curEdit)return;
   if(!confirm('ลบข้อสอบนี้ออกจากคลังถาวร?'))return;
