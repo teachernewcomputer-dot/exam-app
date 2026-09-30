@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ระบบสร้างข้อสอบด้วย AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai+Looped:wght@400;500;700&family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eaf0f5;--card:#fff;--ink:#1c2733;--mute:#5d6b7a;--line:#cfd9e3;--brand:#17405c;--brand2:#e9f1f7;--bad:#c93c3c;--badbg:#fdeaea;--ok:#1d7a4d;--okbg:#e3f5eb}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#111a22;--card:#1a2631;--ink:#e6edf3;--mute:#93a3b3;--line:#2c3b49;--brand:#7fb8dc;--brand2:#20323f;--bad:#ff8080;--badbg:#3a1e1e;--ok:#5cd08f;--okbg:#173427}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:'Noto Sans Thai Looped','Sarabun','Tahoma',sans-serif;background:var(--bg);color:var(--ink);line-height:1.7;font-size:16px}
+.shell{display:grid;grid-template-columns:230px 1fr;min-height:100vh;transition:grid-template-columns .18s ease}
+.shell.collapsed{grid-template-columns:56px 1fr}
+[hidden]{display:none!important}
+.nav{background:var(--card);border-right:1px solid var(--line);padding:18px 10px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.navhd{display:flex;align-items:center;gap:8px;padding:4px 2px 16px}
+.brand{font-weight:700;color:var(--brand);font-size:1.05rem;white-space:nowrap;overflow:hidden}
+#navToggle{border:1px solid var(--line);background:var(--card);color:var(--mute);width:32px;height:32px;flex:none;padding:0;border-radius:6px;font-size:1rem;line-height:1}
+#navToggle:hover{color:var(--brand);border-color:var(--brand)}
+.navlabel{white-space:nowrap}
+.nav button.item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;color:var(--ink);padding:10px 12px;margin-bottom:4px;border-radius:6px;white-space:nowrap}
+.nav button.item .ic{flex:none;width:1.2em;text-align:center}
+.nav button.item:hover{background:var(--brand2)}
+.nav button.item.on{background:var(--brand2);color:var(--brand);font-weight:700}
+.navst{margin-top:auto;font-size:.8rem;color:var(--mute);padding:8px 12px;white-space:nowrap;overflow:hidden}
+.shell.collapsed .navlabel,.shell.collapsed .brand,.shell.collapsed .navst{display:none}
+.shell.collapsed .nav{padding:18px 8px}
+.shell.collapsed .navhd{justify-content:center;padding:4px 0 16px}
+.shell.collapsed button.item{justify-content:center;padding:10px 0}
+.content{min-width:0}
+.app{display:grid;grid-template-columns:360px 1fr;gap:20px;padding:20px}
+.page{padding:20px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;max-width:680px}
+.panel h2{font-size:1rem;margin:22px 0 6px;padding-top:14px;border-top:1px solid var(--line)}
+.guide{border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0;background:var(--brand2)}
+.guide summary{color:var(--brand)}
+.guide ol{padding-left:20px;margin:10px 0}.guide li{margin-bottom:6px;font-size:.92rem}
+.guide pre{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px;font-size:.78rem;overflow-x:auto;margin:6px 0;white-space:pre}
+.guide .warn{font-size:.85rem;color:var(--mute);border-top:1px solid var(--line);padding-top:8px}
+.msg.ok{display:block;background:var(--okbg);color:var(--ok)}
+.card{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.card small{color:var(--mute)}.card div:last-child{display:flex;gap:8px}
+aside{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;align-self:start;position:sticky;top:20px;max-height:calc(100vh - 40px);overflow:auto}
+h1{font-size:1.35rem;margin:0 0 4px;color:var(--brand)}
+.sub{color:var(--mute);font-size:.9rem;margin:0 0 12px}
+label{display:block;font-size:.88rem;font-weight:500;margin:10px 0 3px}
+input,select,textarea{width:100%;font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+textarea{resize:vertical;min-height:70px}
+input:focus,select:focus,textarea:focus,button:focus-visible,summary:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.modes label{margin:0;border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font-weight:400}
+.modes label:has(input:checked){border-color:var(--brand);background:var(--brand2)}
+.modes input{width:auto;margin-right:6px}
+.modes small{display:block;color:var(--mute);font-size:.78rem;line-height:1.4}
+details{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+summary{cursor:pointer;font-weight:700;font-size:1rem}
+button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--brand);background:var(--card);color:var(--brand);padding:8px 14px}
+button.primary{background:var(--brand);color:var(--card);width:100%;padding:11px;font-weight:700;margin-top:16px}
+button:disabled{opacity:.55;cursor:wait}
+.keybox{display:flex;gap:6px}.keybox button{padding:8px 10px;white-space:nowrap}
+.saved{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--okbg);color:var(--ok);border-radius:6px;padding:8px 10px;font-size:.9rem}
+.saved button{padding:4px 10px;font-size:.85rem;border-color:var(--ok);color:var(--ok)}
+.note{font-size:.78rem;color:var(--mute);margin:4px 0 0}
+.msg{margin-top:12px;padding:10px 12px;border-radius:6px;font-size:.9rem;display:none}
+.msg.err{display:block;background:var(--badbg);color:var(--bad)}
+.msg.info{display:block;background:var(--brand2);color:var(--brand)}
+.empty{color:var(--mute);text-align:center;padding:80px 10px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;margin-bottom:14px}
+.bar div{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.bar label{margin:0;display:flex;gap:6px;align-items:center}.bar input{width:auto}
+
+/* กระดาษข้อสอบ */
+.sheet{background:#fff;color:#000;max-width:794px;margin:0 auto 20px;padding:48px 56px;border:1px solid var(--line);box-shadow:0 1px 6px rgba(0,0,0,.12);font-family:'Sarabun','TH Sarabun New',serif;font-size:17px;line-height:1.65}
+.sheet h3{margin:0;text-align:center;font-size:1.35em}
+.hd{text-align:center;margin-bottom:8px}
+.hd p{margin:0}
+.info{display:flex;justify-content:space-between;flex-wrap:wrap;border-top:1.5px solid #000;border-bottom:1.5px solid #000;padding:6px 0;margin:12px 0}
+.stu{display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;margin:14px 0}
+.stu span{border-bottom:1px dotted #000;min-height:1.5em}
+.inst{border:1px solid #000;padding:8px 12px;margin:12px 0 18px}
+.q{margin:0 0 14px;break-inside:avoid}
+.q p{margin:0 0 3px;font-weight:500}
+.q ol{list-style:none;margin:0;padding:0 0 0 28px}
+.keyh{text-align:center;font-size:1.25em;font-weight:700;margin:0 0 4px}
+table{border-collapse:collapse;width:100%;margin:12px 0}
+td,th{border:1px solid #000;padding:3px 6px;text-align:center}
+.exp{margin:8px 0;padding-left:4px;break-inside:avoid}
+.noans .keypage{display:none}
+@media(max-width:860px){.shell,.shell.collapsed{grid-template-columns:1fr}.nav{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:4px;overflow:visible}.navhd{padding:4px 8px}.nav button.item{width:auto;margin:0;justify-content:flex-start;padding:10px 12px}.shell.collapsed button.item{padding:10px}.navst{margin:0 0 0 auto}.shell.collapsed .navst{display:block}.page{padding:12px}.app{grid-template-columns:1fr;padding:12px}aside{position:static;max-height:none}.sheet{padding:24px 18px}.stu{grid-template-columns:1fr}}
+@media print{body{background:#fff}.shell{display:block}.app{display:block;padding:0;margin:0}.nav,aside,.bar,.msg{display:none!important}.sheet{border:0;box-shadow:none;margin:0;padding:0;max-width:none}.keypage{break-before:page}}
+@page{size:A4;margin:18mm}
+</style>
+</head>
+<body>
+<div class="shell">
+<nav class="nav"><div class="navhd"><button id="navToggle" type="button" title="พับ/ขยายเมนู">☰</button><span class="brand">ระบบสร้างข้อสอบ AI</span></div>
+<button id="n-create" class="item on"><span class="ic">📝</span><span class="navlabel">สร้างข้อสอบ</span></button>
+<button id="n-lib" class="item"><span class="ic">📚</span><span class="navlabel">คลังข้อสอบ</span></button>
+<button id="n-set" class="item"><span class="ic">⚙️</span><span class="navlabel">ตั้งค่า</span></button>
+<div class="navst" id="navst"></div></nav>
+<div class="content">
+<section id="v-create" class="app">
+<aside>
+  <h1>สร้างข้อสอบด้วย AI</h1>
+  <p class="sub">กรอกรายละเอียด แล้วให้ AI ออกข้อสอบปรนัยพร้อมเฉลย</p>
+
+  <label for="org">ชื่อโรงเรียน / หน่วยงาน</label>
+  <input id="org" placeholder="เช่น โรงเรียนสวนกุหลาบวิทยาลัย">
+  <label for="subject">วิชาที่สอบ</label>
+  <input id="subject" placeholder="เช่น วิทยาศาสตร์, คณิตศาสตร์">
+  <div class="row">
+    <div><label for="grade">ชั้นเรียน</label><input id="grade" placeholder="เช่น ม.2"></div>
+    <div><label for="count">จำนวนข้อ</label><input id="count" type="number" min="1" max="30" value="10"></div>
+  </div>
+  <div class="row">
+    <div><label for="term">ภาคเรียน / ปีการศึกษา</label><input id="term" placeholder="เช่น 1/2569"></div>
+    <div><label for="time">เวลาสอบ (นาที)</label><input id="time" type="number" min="5" value="30"></div>
+  </div>
+
+  <label>รูปแบบการออกข้อสอบ</label>
+  <div class="modes">
+    <label><input type="radio" name="mode" value="topic" checked>ตามหัวข้อ<small>ครอบคลุมทุกหัวข้อที่ระบุ วัดความรู้ตามหลักสูตร</small></label>
+    <label><input type="radio" name="mode" value="expert">แบบเชี่ยวชาญ<small>เน้นวิเคราะห์ ประยุกต์ ตัวเลือกหลอกที่แนบเนียน</small></label>
+  </div>
+
+  <label for="topics">หัวข้อ / เนื้อหาที่ต้องการสอบ</label>
+  <textarea id="topics" placeholder="แยกแต่ละหัวข้อด้วยบรรทัดใหม่หรือเครื่องหมายจุลภาค"></textarea>
+
+  <label for="level">ระดับความยาก</label>
+  <select id="level"><option>ง่าย</option><option selected>ปานกลาง</option><option>ยาก</option></select>
+
+  
+
+  <button class="primary" id="go">สร้างข้อสอบ</button>
+  <div class="msg" id="msg" role="status"></div>
+</aside>
+
+<main>
+  <div id="out"><div class="empty">กรอกข้อมูลทางซ้าย แล้วกด “สร้างข้อสอบ”<br>ข้อสอบที่ได้จะแสดงตรงนี้</div></div>
+</main>
+</section>
+<section id="v-lib" class="page" hidden><div class="panel" style="max-width:820px"><h1>คลังข้อสอบ</h1><p class="sub" id="libSub"></p><div id="libList"></div></div></section>
+<section id="v-set" class="page" hidden><div class="panel">
+<h1>ตั้งค่า</h1>
+<h2>AI ที่ใช้ออกข้อสอบ</h2>
+    <label for="provider">ผู้ให้บริการ</label>
+    <select id="provider">
+      <option value="anthropic">Claude (Anthropic)</option>
+      <option value="openai">ChatGPT (OpenAI)</option>
+      <option value="gemini">Gemini (Google)</option>
+    </select>
+    <label for="model">ชื่อโมเดล</label>
+    <input id="model">
+    <label for="key">API Key</label>
+    <div id="keyNew" class="keybox"><input id="key" type="password" autocomplete="off" placeholder="วาง API Key แล้วกด บันทึก"><button type="button" id="keySave">บันทึก</button></div>
+    <div id="keyOk" class="saved" hidden><span id="keyMask"></span><button type="button" id="keyChg">เปลี่ยนคีย์</button></div>
+    <p class="note">ใส่ครั้งเดียว ระบบจำไว้ในเบราว์เซอร์เครื่องนี้ และส่งตรงไปยังผู้ให้บริการ AI ที่เลือกเท่านั้น</p>
+  
+<div class="msg" id="msg2"></div>
+<h2>ฐานข้อมูล Firebase (ไม่บังคับ)</h2>
+<p class="note">ถ้ายังไม่เชื่อมต่อ ข้อสอบจะถูกเก็บในเบราว์เซอร์เครื่องนี้ ถ้าเชื่อมต่อ ข้อสอบจะถูกบันทึกลง Firestore</p>
+<details class="guide" open>
+<summary>วิธีเชื่อมฐานข้อมูล Firebase (ทำครั้งเดียว)</summary>
+<ol>
+<li>เข้า <b>console.firebase.google.com</b> ล็อกอินด้วยบัญชี Google แล้วกด <b>สร้างโปรเจกต์</b> (แพ็กเกจฟรี Spark ใช้ได้)</li>
+<li>ในหน้าโปรเจกต์ กดไอคอน <b>&lt;/&gt;</b> (Web app) ตั้งชื่อแอป แล้วคัดลอกก้อน <b>firebaseConfig</b> ที่แสดงให้</li>
+<li>ไปที่ <b>Build → Authentication → Sign-in method</b> แล้วเปิดใช้ <b>Anonymous</b></li>
+<li>ไปที่ <b>Build → Firestore Database → Create database</b> เลือก production mode และภูมิภาค เช่น <b>asia-southeast1</b> (สิงคโปร์)</li>
+<li>เปิดแท็บ <b>Rules</b> ของ Firestore วางกฎด้านล่างแทนของเดิม แล้วกด <b>Publish</b>
+<pre id="rules">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/exams/{examId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}</pre><button type="button" id="rulesCopy" style="padding:4px 10px;font-size:.85rem">คัดลอก Rules</button></li>
+<li>วาง <b>firebaseConfig</b> จากข้อ 2 ในช่องด้านล่าง แล้วกด <b>เชื่อมต่อ</b> เมื่อสำเร็จจะขึ้นสถานะสีเขียว และเมนูซ้ายล่างขึ้น "☁ เชื่อม Firebase แล้ว"</li>
+</ol>
+<p class="warn"><b>ข้อควรรู้:</b> ข้อมูลผูกกับเบราว์เซอร์ (ล็อกอินแบบ Anonymous) ถ้าล้างข้อมูลเว็บหรือเปลี่ยนเครื่องจะมองไม่เห็นข้อสอบเดิม · ถ้าเปิดไฟล์ตรง ๆ แล้วเชื่อมต่อไม่ผ่าน ให้รัน <code>python3 -m http.server</code> ในโฟลเดอร์ไฟล์ แล้วเข้า <code>http://localhost:8000/exam-generator.html</code> · <code>apiKey</code> ใน firebaseConfig ไม่ใช่ความลับ ความปลอดภัยมาจาก Rules · API Key ของ AI ไม่ถูกส่งขึ้น Firebase</p>
+</details>
+<label for="fbcfg">firebaseConfig</label>
+<textarea id="fbcfg" rows="7" placeholder='วางค่า firebaseConfig จาก Firebase Console เช่น&#10;{ apiKey: "...", authDomain: "...", projectId: "...", appId: "..." }'></textarea>
+<div style="display:flex;gap:8px;margin-top:8px"><button class="primary" id="fbGo" style="width:auto;margin:0">เชื่อมต่อ</button><button id="fbOff">ตัดการเชื่อมต่อ</button></div>
+<div class="msg" id="fbst"></div>
+</div></section>
+</div></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const MODELS={anthropic:'claude-sonnet-4-6',openai:'gpt-4o-mini',gemini:'gemini-2.5-flash'};
+let canStore=true;
+const store={get(k){try{return localStorage.getItem(k)}catch(e){canStore=false;return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){canStore=false}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const FIELDS=['org','subject','grade','count','term','time','topics','level','provider','model'];
+let exam=null;
+
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function say(t,type){['msg','msg2'].forEach(i=>{const m=$(i);m.className='msg '+(type||'');m.textContent=t})}
+
+// ---------- จำข้อมูล ----------
+FIELDS.forEach(id=>{const v=store.get('exam_'+id);if(v!==null)$(id).value=v;$(id).addEventListener('change',()=>store.set('exam_'+id,$(id).value))});
+if(!$('model').value)$('model').value=MODELS[$('provider').value];
+const keyName=()=>'exam_key_'+$('provider').value;
+function keyUI(){
+  const k=store.get(keyName());
+  $('keyNew').hidden=!!k;$('keyOk').hidden=!k;
+  $('keyMask').textContent=k?'✓ บันทึก API Key แล้ว (…'+k.slice(-4)+')':'';
+  if(!canStore)say('เบราว์เซอร์นี้ไม่อนุญาตให้จำข้อมูล ต้องใส่ API Key ใหม่ทุกครั้ง','err');
+}
+$('provider').onchange=()=>{$('model').value=MODELS[$('provider').value];store.set('exam_model',$('model').value);keyUI()};
+$('keySave').onclick=()=>{const k=$('key').value.trim();if(!k)return say('กรุณาวาง API Key','err');store.set(keyName(),k);$('key').value='';say('');keyUI()};
+$('keyChg').onclick=()=>{store.del(keyName());$('keyNew').hidden=false;$('keyOk').hidden=true;$('key').focus()};
+keyUI();
+
+// ---------- Prompt ภาษาไทย ----------
+function buildPrompt(o){
+  const expert=o.mode==='expert';
+  return `คุณคือครูผู้เชี่ยวชาญด้านการวัดและประเมินผล มีประสบการณ์ออกข้อสอบวิชา${o.subject} สำหรับนักเรียน${o.grade}
+
+งานของคุณ: สร้างข้อสอบปรนัย 4 ตัวเลือก จำนวน ${o.count} ข้อ
+- วิชา: ${o.subject}
+- ระดับชั้น: ${o.grade}
+- ระดับความยาก: ${o.level}
+- หัวข้อ/เนื้อหา: ${o.topics||'ตามหลักสูตรของวิชาและระดับชั้นนี้'}
+
+${expert?`รูปแบบ "เชี่ยวชาญ":
+- เน้นการคิดวิเคราะห์ ประยุกต์ใช้ และแก้ปัญหาหลายขั้นตอน (ระดับ Apply, Analyze, Evaluate ตาม Bloom's Taxonomy) ไม่ใช่การท่องจำ
+- ใช้สถานการณ์จริงหรือโจทย์ปัญหาที่ต้องใช้ความเข้าใจเชิงลึก
+- ตัวเลือกหลอกต้องมาจากความเข้าใจผิดที่พบบ่อยของนักเรียน ดูสมเหตุสมผลแต่ผิด
+- อย่าให้คำตอบที่ถูกยาวหรือเด่นกว่าตัวเลือกอื่น`:`รูปแบบ "ตามหัวข้อ":
+- กระจายข้อสอบให้ครอบคลุมทุกหัวข้อที่ระบุอย่างสมดุล
+- ผสมระดับความจำ ความเข้าใจ และการนำไปใช้ให้เหมาะกับระดับชั้น
+- ใช้ภาษาชัดเจน ตรงกับเนื้อหาที่นักเรียนชั้นนี้เรียน`}
+
+ข้อกำหนด:
+1. ทุกข้อมีคำตอบที่ถูกต้องเพียง 1 ข้อ และต้องถูกต้องตามหลักวิชาการจริง
+2. ห้ามใช้ตัวเลือก "ถูกทุกข้อ" หรือ "ไม่มีข้อใดถูก"
+3. สลับตำแหน่งคำตอบที่ถูกให้กระจายในตัวเลือก ก, ข, ค, ง
+4. ห้ามออกข้อสอบซ้ำกัน
+5. เขียนคำอธิบายเฉลยสั้น ๆ 1-2 ประโยคว่าทำไมข้อนั้นถูก
+6. เขียนเป็นภาษาไทยทั้งหมด (ยกเว้นศัพท์เฉพาะหรือสูตร)
+7. ตัวเลือกให้เขียนแต่เนื้อหา ไม่ต้องใส่ ก. ข. ค. ง. นำหน้า
+
+ตอบกลับเป็น JSON เท่านั้น ห้ามมีข้อความอื่นหรือ markdown ตามโครงสร้างนี้:
+{"title":"ชื่อแบบทดสอบ","questions":[{"topic":"หัวข้อของข้อนี้","q":"โจทย์","choices":["ตัวเลือก 1","ตัวเลือก 2","ตัวเลือก 3","ตัวเลือก 4"],"answer":0,"explanation":"เฉลยพร้อมเหตุผล"}]}
+โดย answer คือเลขตำแหน่ง 0-3 ของตัวเลือกที่ถูก`;
+}
+
+// ---------- เรียก API ----------
+async function callAI(provider,model,key,prompt){
+  let url,opt,pick;
+  if(provider==='anthropic'){
+    url='https://api.anthropic.com/v1/messages';
+    opt={method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model,max_tokens:8000,messages:[{role:'user',content:prompt}]})};
+    pick=d=>d.content.map(c=>c.text||'').join('');
+  }else if(provider==='openai'){
+    url='https://api.openai.com/v1/chat/completions';
+    opt={method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+key},body:JSON.stringify({model,response_format:{type:'json_object'},messages:[{role:'user',content:prompt}]})};
+    pick=d=>d.choices[0].message.content;
+  }else{
+    url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+    opt={method:'POST',headers:{'content-type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json'}})};
+    pick=d=>d.candidates[0].content.parts.map(p=>p.text||'').join('');
+  }
+  const r=await fetch(url,opt);
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.error?.message||('HTTP '+r.status));
+  return pick(d);
+}
+function parseExam(txt){
+  const a=txt.indexOf('{'),b=txt.lastIndexOf('}');
+  if(a<0||b<0)throw new Error('AI ไม่ได้ตอบเป็น JSON');
+  const d=JSON.parse(txt.slice(a,b+1));
+  if(!Array.isArray(d.questions)||!d.questions.length)throw new Error('ไม่พบข้อสอบในคำตอบ');
+  return d;
+}
+
+// ---------- แสดงข้อสอบ (รูปแบบทางการ) ----------
+const L=['ก','ข','ค','ง'];
+const clean=c=>String(c).replace(/^\s*[ก-ง๐-๙A-Da-d1-4][\.\)]\s*/,'');
+function render(){
+  const o=exam.meta,n=exam.questions.length;
+  const th=v=>String(v).replace(/\d/g,d=>'๐๑๒๓๔๕๖๗๘๙'[d]);
+  let h=`<div class="bar"><div><label><input type="checkbox" id="chkAns" checked>แสดง/พิมพ์เฉลยท้ายข้อสอบ</label></div><div><button id="bCopy">คัดลอกข้อสอบ</button><button id="bPrint">พิมพ์ / บันทึก PDF</button></div></div>
+  <div class="sheet" id="sheet">
+  <div class="hd">${o.org?`<p><b>${esc(o.org)}</b></p>`:''}<h3>${esc(exam.title||('แบบทดสอบวิชา'+o.subject))}</h3>
+  <p>วิชา${esc(o.subject)} ${esc(o.grade)}${o.term?` ภาคเรียนที่/ปีการศึกษา ${esc(o.term)}`:''}</p></div>
+  <div class="info"><span>เวลา ${esc(o.time)} นาที</span><span>จำนวน ${n} ข้อ</span><span>คะแนนเต็ม ${n} คะแนน</span></div>
+  <div class="stu"><div>ชื่อ-สกุล <span style="display:inline-block;width:70%"></span></div><div>ชั้น <span style="display:inline-block;width:60%"></span></div><div>เลขที่ <span style="display:inline-block;width:55%"></span></div></div>
+  <div class="inst"><b>คำชี้แจง</b> ข้อสอบฉบับนี้เป็นแบบปรนัย ๔ ตัวเลือก มี ${n} ข้อ ข้อละ ๑ คะแนน ให้นักเรียนเลือกคำตอบที่ถูกต้องที่สุดเพียงข้อเดียว</div>`;
+  exam.questions.forEach((q,i)=>{
+    h+=`<div class="q"><p>${i+1}. ${esc(q.q)}</p><ol>`+q.choices.map((c,j)=>`<li>${L[j]}. ${esc(clean(c))}</li>`).join('')+`</ol></div>`;
+  });
+  h+=`<div class="hd" style="margin-top:20px">--- หมดคำถาม ---</div>
+  <div class="keypage"><p class="keyh">เฉลยข้อสอบ</p><div class="hd"><p>วิชา${esc(o.subject)} ${esc(o.grade)}</p></div>
+  <table><tr>${exam.questions.map((_,i)=>`<th>${i+1}</th>`).join('')}</tr><tr>${exam.questions.map(q=>`<td>${L[q.answer]}</td>`).join('')}</tr></table>
+  <p><b>เฉลยละเอียด</b></p>`+exam.questions.map((q,i)=>`<div class="exp"><b>ข้อ ${i+1}. ตอบ ${L[q.answer]}</b>${q.topic?` <i>(${esc(q.topic)})</i>`:''} — ${esc(q.explanation)}</div>`).join('')+`</div></div>`;
+  $('out').innerHTML=h;
+  $('chkAns').onchange=e=>$('sheet').classList.toggle('noans',!e.target.checked);
+  $('bPrint').onclick=()=>window.print();
+  $('bCopy').onclick=async()=>{
+    let t=`${exam.title||''}\nวิชา${o.subject} ${o.grade} เวลา ${o.time} นาที\n\n`+exam.questions.map((q,i)=>`${i+1}. ${q.q}\n`+q.choices.map((c,j)=>`   ${L[j]}. ${clean(c)}`).join('\n')).join('\n\n');
+    if($('chkAns').checked)t+='\n\nเฉลย\n'+exam.questions.map((q,i)=>`${i+1}. ${L[q.answer]} — ${q.explanation}`).join('\n');
+    try{await navigator.clipboard.writeText(t);say('คัดลอกข้อสอบแล้ว','info')}catch(e){say('คัดลอกไม่สำเร็จ ลองเลือกข้อความเอง','err')}
+  };
+}
+
+// ---------- เมนู ----------
+const VIEWS=['create','lib','set'];
+const shell=document.querySelector('.shell');
+if(store.get('nav_collapsed')==='1')shell.classList.add('collapsed');
+$('navToggle').onclick=()=>{shell.classList.toggle('collapsed');store.set('nav_collapsed',shell.classList.contains('collapsed')?'1':'0')};
+function show(v){VIEWS.forEach(x=>{$('v-'+x).hidden=x!==v;$('n-'+x).classList.toggle('on',x===v)});if(window.innerWidth<=860)shell.classList.remove('collapsed');if(v==='lib')loadLib();window.scrollTo(0,0)}
+VIEWS.forEach(x=>$('n-'+x).onclick=()=>show(x));
+
+// ---------- คลังข้อสอบ (ในเครื่อง หรือ Firebase) ----------
+const FB={ready:false};
+const localList=()=>{try{return JSON.parse(store.get('exam_library')||'[]')}catch(e){return[]}};
+const clone=o=>JSON.parse(JSON.stringify(o));
+const DB={
+  async list(){
+    if(FB.ready){const{collection,getDocs,query,orderBy}=FB.fs;return(await getDocs(query(collection(FB.db,'users',FB.uid,'exams'),orderBy('created','desc')))).docs.map(d=>d.data())}
+    return localList().sort((a,b)=>b.created-a.created)},
+  async save(e){
+    if(FB.ready){const{doc,setDoc}=FB.fs;await setDoc(doc(FB.db,'users',FB.uid,'exams',e.id),clone(e))}
+    else store.set('exam_library',JSON.stringify(localList().filter(x=>x.id!==e.id).concat(clone(e))))},
+  async del(id){
+    if(FB.ready){const{doc,deleteDoc}=FB.fs;await deleteDoc(doc(FB.db,'users',FB.uid,'exams',id))}
+    else store.set('exam_library',JSON.stringify(localList().filter(x=>x.id!==id)))}
+};
+let libCache=[];
+async function loadLib(){
+  $('libSub').textContent='ที่เก็บข้อมูล: '+(FB.ready?'Firebase (ออนไลน์)':'เบราว์เซอร์เครื่องนี้');
+  $('libList').innerHTML='<div class="empty">กำลังโหลด...</div>';
+  try{
+    libCache=await DB.list();
+    $('libList').innerHTML=libCache.length?libCache.map(e=>`<div class="card"><div><b>${esc(e.title||'แบบทดสอบ')}</b><br><small>วิชา${esc(e.meta.subject)} · ${esc(e.meta.grade)} · ${e.questions.length} ข้อ · ${e.meta.mode==='expert'?'เชี่ยวชาญ':'ตามหัวข้อ'} · ${new Date(e.created).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})}</small></div><div><button data-o="${esc(e.id)}">เปิด</button><button data-d="${esc(e.id)}">ลบ</button></div></div>`).join(''):'<div class="empty">ยังไม่มีข้อสอบในคลัง<br>สร้างข้อสอบแล้วระบบจะบันทึกให้อัตโนมัติ</div>';
+  }catch(e){$('libList').innerHTML='<div class="msg err">โหลดคลังไม่สำเร็จ: '+esc(e.message)+'</div>'}
+}
+$('libList').onclick=async e=>{
+  const o=e.target.dataset.o,d=e.target.dataset.d;
+  if(o){exam=libCache.find(x=>x.id===o);show('create');render()}
+  if(d&&confirm('ลบข้อสอบนี้ออกจากคลัง?')){try{await DB.del(d);loadLib()}catch(er){alert('ลบไม่สำเร็จ: '+er.message)}}
+};
+
+// ---------- Firebase ----------
+function fbSay(t,type){const m=$('fbst');m.className='msg '+(type||'');m.textContent=t;$('navst').textContent=FB.ready?'☁ เชื่อม Firebase แล้ว':'เก็บข้อมูลในเครื่องนี้'}
+async function fbConnect(text){
+  try{
+    const c=text.slice(text.indexOf('{'),text.lastIndexOf('}')+1).replace(/([{,]\s*)([A-Za-z_]\w*)\s*:/g,'$1"$2":').replace(/,\s*}/g,'}');
+    const cfg=JSON.parse(c);
+    if(!cfg.apiKey||!cfg.projectId)throw new Error('config ไม่ครบ ต้องมี apiKey และ projectId');
+    fbSay('กำลังเชื่อมต่อ...','info');
+    const B='https://www.gstatic.com/firebasejs/10.12.2/';
+    const[app,auth,fs]=await Promise.all(['firebase-app.js','firebase-auth.js','firebase-firestore.js'].map(f=>import(B+f)));
+    const a=app.getApps().length?app.getApp():app.initializeApp(cfg);
+    const au=auth.getAuth(a);await au.authStateReady();
+    if(!au.currentUser)await auth.signInAnonymously(au);
+    Object.assign(FB,{fs,db:fs.getFirestore(a),uid:au.currentUser.uid});
+    FB.ready=true;await DB.list();               // ทดสอบสิทธิ์อ่านตาม Rules
+    for(const e of localList())await DB.save(e); // ย้ายข้อสอบในเครื่องขึ้น Firebase
+    store.set('exam_fbcfg',text);fbSay('เชื่อมต่อ Firebase สำเร็จ ข้อสอบใหม่จะบันทึกที่ Firestore','ok');
+  }catch(e){
+    FB.ready=false;const code=e.code||'';
+    const hint=code.includes('operation-not-allowed')?' — ยังไม่ได้เปิด Anonymous ใน Authentication':code.includes('permission')?' — ตรวจสอบ Firestore Rules':code.includes('unauthorized-domain')?' — เพิ่มโดเมนใน Authorized domains (หรือเปิดผ่าน localhost)':'';
+    fbSay('เชื่อมต่อไม่สำเร็จ: '+(e.message||code)+hint,'err');
+  }
+}
+$('rulesCopy').onclick=async()=>{try{await navigator.clipboard.writeText($('rules').textContent);$('rulesCopy').textContent='คัดลอกแล้ว ✓'}catch(e){$('rulesCopy').textContent='คัดลอกไม่ได้ ลองเลือกเอง'}};
+$('fbGo').onclick=()=>{const t=$('fbcfg').value.trim();t?fbConnect(t):fbSay('กรุณาวาง firebaseConfig','err')};
+$('fbOff').onclick=()=>{FB.ready=false;store.del('exam_fbcfg');$('fbcfg').value='';fbSay('ตัดการเชื่อมต่อแล้ว ใช้ที่เก็บในเครื่องนี้','info')};
+{const c=store.get('exam_fbcfg');if(c){$('fbcfg').value=c;fbConnect(c)}else fbSay('','')}
+
+// ---------- สร้างข้อสอบ ----------
+$('go').onclick=async()=>{
+  const o={org:$('org').value.trim(),subject:$('subject').value.trim(),grade:$('grade').value.trim(),count:Math.min(30,Math.max(1,parseInt($('count').value)||10)),
+    term:$('term').value.trim(),time:$('time').value||30,mode:document.querySelector('input[name=mode]:checked').value,topics:$('topics').value.trim(),level:$('level').value};
+  const provider=$('provider').value,model=$('model').value.trim();
+  if(!$('keyNew').hidden&&$('key').value.trim()){store.set(keyName(),$('key').value.trim());$('key').value='';keyUI()}
+  const key=store.get(keyName());
+  if(!o.subject||!o.grade)return say('กรุณาระบุวิชาและชั้นเรียน','err');
+  if(o.mode==='topic'&&!o.topics)return say('โหมด “ตามหัวข้อ” ต้องระบุหัวข้ออย่างน้อย 1 หัวข้อ','err');
+  if(!key){show('set');return say('กรุณาใส่ API Key ในส่วนตั้งค่า AI','err')}
+  if(!model)return say('กรุณาระบุชื่อโมเดล','err');
+  FIELDS.forEach(id=>store.set('exam_'+id,$(id).value));
+  $('go').disabled=true;$('go').textContent='กำลังสร้างข้อสอบ...';say('AI กำลังออกข้อสอบ อาจใช้เวลา 10–60 วินาที','info');
+  try{
+    exam=parseExam(await callAI(provider,model,key,buildPrompt(o)));exam.meta=o;
+    exam.questions=exam.questions.filter(q=>q&&Array.isArray(q.choices)&&q.choices.length>=2&&Number.isInteger(q.answer)&&q.answer>=0&&q.answer<q.choices.length);
+    if(!exam.questions.length)throw new Error('รูปแบบข้อสอบไม่ถูกต้อง ลองสร้างใหม่อีกครั้ง');
+    exam.id=Date.now().toString(36);exam.created=Date.now();
+    render();say('');
+    try{await DB.save(exam);say('สร้างข้อสอบเรียบร้อย และบันทึกลงคลัง'+(FB.ready?' (Firebase)':' (ในเครื่องนี้)')+'แล้ว','info')}catch(e){say('สร้างข้อสอบแล้ว แต่บันทึกลงคลังไม่สำเร็จ: '+e.message,'err')}
+  }catch(e){say('เกิดข้อผิดพลาด: '+e.message+' — ตรวจสอบ API Key ชื่อโมเดล แล้วลองใหม่','err')}
+  finally{$('go').disabled=false;$('go').textContent='สร้างข้อสอบ'}
+};
+</script>
+</body>
+</html>
