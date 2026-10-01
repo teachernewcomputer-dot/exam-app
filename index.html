@@ -166,7 +166,7 @@ td,th{border:1px solid #000;padding:3px 6px;text-align:center}
   <label>หัวข้อ / ตัวชี้วัด</label>
   <div class="topicbox">
     <button type="button" id="loadTopics" class="ghost" style="width:100%">🔍 ค้นหาหัวข้อ/ตัวชี้วัดของวิชานี้</button>
-    <p class="note" id="topicHint">กรอกวิชาและชั้นเรียนด้านบนก่อน แล้วกดปุ่มนี้ ระบบจะให้ AI แนะนำหัวข้อที่ควรออกข้อสอบ เลือกได้หลายหัวข้อ</p>
+    <p class="note" id="topicHint">กรอกวิชาและชั้นเรียนด้านบนก่อน แล้วกดปุ่มนี้ ระบบจะให้ AI แนะนำมาตรฐานการเรียนรู้/ตัวชี้วัด อ้างอิงหลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พ.ศ. 2551 (ฉบับปรับปรุง พ.ศ. 2560) เลือกได้หลายหัวข้อ</p>
     <div class="topicgrid" id="topicGrid"></div>
     <label for="topicsExtra" style="margin-top:8px">หัวข้อเพิ่มเติม (พิมพ์เอง)</label>
     <textarea id="topicsExtra" placeholder="พิมพ์หัวข้อเพิ่มเติมที่ต้องการ แยกแต่ละหัวข้อด้วยบรรทัดใหม่"></textarea>
@@ -242,6 +242,7 @@ service cloud.firestore {
   }
 }</pre><button type="button" id="rulesCopy" style="padding:4px 10px;font-size:.85rem">คัดลอก Rules</button></li>
 <li>วาง <b>firebaseConfig</b> จากข้อ 2 ในช่องด้านล่าง แล้วกด <b>เชื่อมต่อ</b> เมื่อสำเร็จจะขึ้นสถานะสีเขียว และเมนูซ้ายล่างขึ้น "☁ เชื่อม Firebase แล้ว"</li>
+<li>(แนะนำ) กด <b>"เข้าสู่ระบบด้วย Google"</b> ด้านล่างนี้ด้วย เพื่อให้เปิดจากเครื่องไหน/เบราว์เซอร์ไหนก็เห็นข้อสอบชุดเดิม — ถ้าข้ามขั้นนี้ ระบบจะผูกข้อมูลไว้กับเบราว์เซอร์เครื่องนี้เท่านั้น เปิดเครื่องอื่นจะมองไม่เห็นข้อสอบเดิม</li>
 </ol>
 <p class="warn"><b>ข้อควรรู้:</b> ข้อมูลผูกกับเบราว์เซอร์ (ล็อกอินแบบ Anonymous) ถ้าล้างข้อมูลเว็บหรือเปลี่ยนเครื่องจะมองไม่เห็นข้อสอบเดิม · ถ้าเปิดไฟล์ตรง ๆ แล้วเชื่อมต่อไม่ผ่าน ให้รัน <code>python3 -m http.server</code> ในโฟลเดอร์ไฟล์ แล้วเข้า <code>http://localhost:8000/exam-generator.html</code> · <code>apiKey</code> ใน firebaseConfig ไม่ใช่ความลับ ความปลอดภัยมาจาก Rules · API Key ของ AI ไม่ถูกส่งขึ้น Firebase</p>
 </details>
@@ -249,6 +250,11 @@ service cloud.firestore {
 <textarea id="fbcfg" rows="7" placeholder='วางค่า firebaseConfig จาก Firebase Console เช่น&#10;{ apiKey: "...", authDomain: "...", projectId: "...", appId: "..." }'></textarea>
 <div style="display:flex;gap:8px;margin-top:8px"><button class="primary" id="fbGo" style="width:auto;margin:0">เชื่อมต่อ</button><button id="fbOff">ตัดการเชื่อมต่อ</button></div>
 <div class="msg" id="fbst"></div>
+<div id="googleBox" hidden style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+  <p class="note" style="margin-bottom:8px"><b>เปิดจากหลายเครื่อง/เบราว์เซอร์แล้วอยากเห็นข้อสอบชุดเดิม:</b> ล็อกอินด้วยบัญชี Google เดียวกันในทุกเครื่องที่ใช้</p>
+  <button type="button" id="googleIn" style="width:100%">🔑 เข้าสู่ระบบด้วย Google</button>
+  <div id="googleOk" class="saved" hidden style="margin-top:8px"><span id="googleMask"></span><button type="button" id="googleOut" style="padding:4px 10px;font-size:.85rem">ออกจากระบบ</button></div>
+</div>
 </div></section>
 
 </div></div>
@@ -498,9 +504,10 @@ async function compile(){
   catch(e){say('สร้างข้อสอบแล้ว แต่บันทึกลงคลังไม่สำเร็จ: '+e.message,'err')}
 }
 function renderExamView(){
-  let h=`<div class="bar"><div><label><input type="checkbox" id="chkAns" checked>แสดง/พิมพ์เฉลยท้ายข้อสอบ</label><button id="backPick" class="ghost">← กลับไปเลือกข้อ</button></div><div><button id="bCopy">คัดลอกข้อสอบ</button><button id="bPrint">พิมพ์ / บันทึก PDF</button></div></div>`+sheetHTML(exam);
+  let h=`<div class="bar"><div><label><input type="checkbox" id="chkAns" checked>แสดง/พิมพ์เฉลยท้ายข้อสอบ</label><button id="backPick" class="ghost">← กลับไปเลือกข้อ</button></div><div><button id="bCopy">คัดลอกข้อสอบ</button><button id="bDoc">⬇ ดาวน์โหลด .doc</button><button id="bPrint">พิมพ์ / บันทึก PDF</button></div></div>`+sheetHTML(exam);
   $('out').innerHTML=h;
   $('chkAns').onchange=e=>$('sheetPaper').classList.toggle('noans',!e.target.checked);
+  $('bDoc').onclick=()=>downloadDoc(exam,$('chkAns').checked);
   $('bPrint').onclick=()=>window.print();
   $('bCopy').onclick=async()=>{try{await navigator.clipboard.writeText(copyText(exam,$('chkAns').checked));say('คัดลอกข้อสอบแล้ว','info')}catch(e){say('คัดลอกไม่สำเร็จ ลองเลือกข้อความเอง','err')}};
   $('backPick').onclick=()=>renderPicker();
@@ -628,6 +635,15 @@ $('detSave').onclick=async()=>{
 
 // ---------- Firebase ----------
 function fbSay(t,type){const m=$('fbst');m.className='msg '+(type||'');m.textContent=t;$('navst').textContent=FB.ready?'☁ เชื่อม Firebase แล้ว':'เก็บข้อมูลในเครื่องนี้'}
+function googleUI(){
+  if(!FB.ready){$('googleBox').hidden=true;return}
+  $('googleBox').hidden=false;
+  const g=FB.auth?.currentUser;
+  const isGoogle=g&&g.providerData.some(p=>p.providerId==='google.com');
+  $('googleIn').hidden=!!isGoogle;
+  $('googleOk').hidden=!isGoogle;
+  if(isGoogle)$('googleMask').textContent='✓ เข้าสู่ระบบแล้ว: '+(g.displayName||g.email||'บัญชี Google');
+}
 async function fbConnect(text){
   try{
     const c=text.slice(text.indexOf('{'),text.lastIndexOf('}')+1).replace(/([{,]\s*)([A-Za-z_]\w*)\s*:/g,'$1"$2":').replace(/,\s*}/g,'}');
@@ -639,16 +655,43 @@ async function fbConnect(text){
     const a=app.getApps().length?app.getApp():app.initializeApp(cfg);
     const au=auth.getAuth(a);await au.authStateReady();
     if(!au.currentUser)await auth.signInAnonymously(au);
-    Object.assign(FB,{fs,db:fs.getFirestore(a),uid:au.currentUser.uid});
+    Object.assign(FB,{fs,auth:au,authMod:auth,db:fs.getFirestore(a),uid:au.currentUser.uid});
     FB.ready=true;await DB.list();
     for(const e of localList())await DB.save(e);
     store.set('exam_fbcfg',text);fbSay('เชื่อมต่อ Firebase สำเร็จ ข้อสอบใหม่จะบันทึกที่ Firestore','ok');
+    googleUI();
   }catch(e){
     FB.ready=false;const code=e.code||'';
     const hint=code.includes('operation-not-allowed')?' — ยังไม่ได้เปิด Anonymous ใน Authentication':code.includes('permission')?' — ตรวจสอบ Firestore Rules':code.includes('unauthorized-domain')?' — เพิ่มโดเมนใน Authorized domains (หรือเปิดผ่าน localhost)':'';
     fbSay('เชื่อมต่อไม่สำเร็จ: '+(e.message||code)+hint,'err');
+    googleUI();
   }
 }
+$('googleIn').onclick=async()=>{
+  if(!FB.ready||!FB.authMod)return fbSay('กรุณาเชื่อมต่อ Firebase ก่อน','err');
+  try{
+    fbSay('กำลังเปิดหน้าต่างล็อกอิน Google...','info');
+    const provider=new FB.authMod.GoogleAuthProvider();
+    const res=await FB.authMod.signInWithPopup(FB.auth,provider);
+    FB.uid=res.user.uid;
+    await loadLib();
+    fbSay('เข้าสู่ระบบด้วย Google สำเร็จ ตอนนี้เห็นข้อสอบของบัญชีนี้แล้ว ล็อกอินบัญชีเดียวกันในเครื่องอื่นเพื่อเห็นชุดเดียวกัน','ok');
+    googleUI();
+  }catch(e){
+    const code=e.code||'';
+    const hint=code.includes('popup-blocked')?' — เบราว์เซอร์บล็อกป๊อปอัป อนุญาตป๊อปอัปแล้วลองใหม่':code.includes('unauthorized-domain')?' — เพิ่มโดเมนนี้ใน Authentication → Settings → Authorized domains':'';
+    fbSay('เข้าสู่ระบบไม่สำเร็จ: '+(e.message||code)+hint,'err');
+  }
+};
+$('googleOut').onclick=async()=>{
+  if(!FB.ready)return;
+  await FB.authMod.signOut(FB.auth);
+  if(!FB.auth.currentUser)await FB.authMod.signInAnonymously(FB.auth);
+  FB.uid=FB.auth.currentUser.uid;
+  await loadLib();
+  fbSay('ออกจากระบบ Google แล้ว กลับไปใช้ข้อมูลของเบราว์เซอร์เครื่องนี้','info');
+  googleUI();
+};
 $('rulesCopy').onclick=async()=>{try{await navigator.clipboard.writeText($('rules').textContent);$('rulesCopy').textContent='คัดลอกแล้ว ✓'}catch(e){$('rulesCopy').textContent='คัดลอกไม่ได้ ลองเลือกเอง'}};
 $('fbGo').onclick=()=>{const t=$('fbcfg').value.trim();t?fbConnect(t):fbSay('กรุณาวาง firebaseConfig','err')};
 $('fbOff').onclick=()=>{FB.ready=false;store.del('exam_fbcfg');$('fbcfg').value='';fbSay('ตัดการเชื่อมต่อแล้ว ใช้ที่เก็บในเครื่องนี้','info')};
