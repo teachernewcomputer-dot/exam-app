@@ -127,26 +127,33 @@ td,th{border:1px solid #000;padding:3px 6px;text-align:center}
 
 /* กระดาษคำตอบ (bubble sheet) */
 .sheetA5{page:omr}
-.osheet{position:relative;width:100%;max-width:480px;aspect-ratio:0.7072;margin:0 auto;background:#fff;color:#000;border:1px solid var(--line);box-shadow:0 1px 6px rgba(0,0,0,.12);font-family:'Sarabun',sans-serif;overflow:hidden}
-.osheet .cm{position:absolute;width:4.5%;aspect-ratio:1;background:#000}
+.osheetOuter{container-type:inline-size;container-name:osheet;width:100%;max-width:480px;margin:0 auto}
+.osheet{position:relative;width:100%;aspect-ratio:0.7072;background:#fff;color:#000;border:1px solid var(--line);box-shadow:0 1px 6px rgba(0,0,0,.12);font-family:'Sarabun',sans-serif;overflow:hidden}
+.osheet .cm{position:absolute;width:4%;aspect-ratio:1;background:#000}
 .osheet .cm.tl{top:1.5%;left:1.5%}.osheet .cm.tr{top:1.5%;right:1.5%}.osheet .cm.bl{bottom:1.5%;left:1.5%}.osheet .cm.br{bottom:1.5%;right:1.5%}
-.osheet .ohd{position:absolute;top:3%;left:8%;right:8%;text-align:center}
-.osheet .oorg{font-size:2.6vw;font-weight:700}
-.osheet .otitle{font-size:3.4vw;font-weight:700;margin-top:.5vw}
-.osheet .ometa{font-size:2.1vw;color:#222;margin-top:.5vw}
-.osheet .ofields{font-size:2vw;text-align:left;margin-top:2vw;line-height:2.6}
-.osheet .ofields b{display:inline-block;width:19%}
+.osheet .ohd{position:absolute;top:2.5%;left:9%;right:9%;text-align:center;line-height:1.25}
+.osheet .oorg{font-size:3.1cqw;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.osheet .otitle{font-size:4cqw;font-weight:700;margin-top:.3em}
+.osheet .ometa{font-size:2.5cqw;color:#222;margin-top:.3em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.osheet .ofields{font-size:2.3cqw;text-align:left;margin-top:1.1em;line-height:2.2;white-space:nowrap}
+.osheet .ofields b{display:inline-block;font-weight:700}
 .osheet .ofields i{display:inline-block;border-bottom:1px solid #000;font-style:normal}
-.osheet .ofields .fn{width:46%}
-.osheet .ofields .fc{width:16%}
-.osheet .ofields .fno{width:14%}
-.osheet .ofields .fd{width:30%}
-.osheet .oinst{font-size:1.65vw;margin-top:1.6vw;border:1px solid #000;padding:1.2vw 2vw;text-align:left;line-height:1.4}
-.osheet .obub{position:absolute;width:3.6%;aspect-ratio:1;border:1.5px solid #000;border-radius:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;font-size:2.2vw}
-.osheet .onum{position:absolute;transform:translate(-100%,-50%);font-size:2.4vw;font-weight:700}
-.osheet .ofoot{position:absolute;bottom:2.5%;left:8%;right:8%;text-align:center;font-size:1.6vw;color:#444}
-@media print{.osheet{box-shadow:none;border:0;max-width:none;page-break-inside:avoid}}
+.osheet .ofields .fn{width:34%}
+.osheet .ofields .fc{width:13%}
+.osheet .ofields .fno{width:10%}
+.osheet .oinst{font-size:1.9cqw;margin-top:.9em;border:1px solid #000;padding:.5em .8em;text-align:left;line-height:1.3}
+.osheet .obub{position:absolute;width:3.2%;aspect-ratio:1;border:1.4px solid #000;border-radius:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;font-size:1.9cqw;line-height:1}
+.osheet .onum{position:absolute;transform:translate(-100%,-50%);font-size:2.1cqw;font-weight:700;line-height:1}
+.osheet .ofoot{position:absolute;bottom:1.8%;left:8%;right:8%;text-align:center;font-size:1.5cqw;color:#444}
+@media print{.osheet{box-shadow:none;border:0}.osheetOuter{max-width:none}}
 @page omr{size:148mm 210mm;margin:8mm}
+
+/* ป๊อปอัปแสดง/พิมพ์เอกสาร (ไม่เปลี่ยนหน้า) */
+.modalOv{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:80;overflow:auto;padding:24px 16px}
+.modalBox{max-width:900px;margin:0 auto}
+.modalBar{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;position:sticky;top:0}
+.modalBar button{background:var(--card)}
+@media print{.modalOv{position:static;background:none;padding:0;overflow:visible}.modalBar{display:none}body.printingModal>.shell{display:none!important}}
 
 /* กล้องสแกน */
 .camwrap{position:relative;width:100%;max-width:420px;margin:0 auto;aspect-ratio:0.7072;background:#111;border-radius:10px;overflow:hidden;border:2px dashed var(--brand)}
@@ -360,6 +367,15 @@ service cloud.firestore {
   <div id="historyList" style="margin-top:16px"></div>
 </div>
 </section>
+
+<div class="modalOv" id="sheetModal" hidden>
+  <div class="modalBox">
+    <div class="modalBar"><b id="modalTitle" style="align-self:center"></b>
+      <div><button id="modalDoc">📄 ดาวน์โหลดเอกสาร (.doc)</button><button id="modalPrint">🖨️ พิมพ์ / บันทึก PDF</button><button id="modalClose" class="ghost">✕ ปิด</button></div>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
 
 </div></div>
 
@@ -762,7 +778,7 @@ function bubbleLayout(count){
   // เผื่อพื้นที่หัวกระดาษแบบทางการ (ชื่อโรงเรียน/ชื่อ-สกุล/ชั้น/เลขที่/คำชี้แจง) ไว้ด้านบน 30%
   const cols=count>15?2:1;
   const perCol=Math.ceil(count/cols);
-  const yTop=32,yBot=96,xColW=96/cols;
+  const yTop=38,yBot=97,xColW=96/cols;
   const pos=[];
   for(let i=0;i<count;i++){
     const col=Math.floor(i/perCol),row=i%perCol;
@@ -781,28 +797,63 @@ function answerSheetHTML(exam){
   <div class="ohd">
     ${o.org?`<div class="oorg">${esc(o.org)}</div>`:''}
     <div class="otitle">กระดาษคำตอบ</div>
-    <div class="ometa">${esc(exam.title||('แบบทดสอบวิชา'+o.subject))}</div>
-    <div class="ometa">วิชา${esc(o.subject)} ${esc(o.grade)}${o.term?` · ภาคเรียน/ปีการศึกษา ${esc(o.term)}`:''} · ${n} ข้อ</div>
+    <div class="ometa">วิชา${esc(o.subject)} ${esc(o.grade)} · ${n} ข้อ${o.term?` · ${esc(o.term)}`:''}</div>
     <div class="ofields">
-      <div><b>ชื่อ-นามสกุล</b><i class="fn">&nbsp;</i><b style="width:8%;text-align:right">ชั้น</b><i class="fc">&nbsp;</i></div>
-      <div><b>เลขที่</b><i class="fno">&nbsp;</i><b style="width:12%;text-align:right">วันที่สอบ</b><i class="fd">&nbsp;</i></div>
+      <div><b>ชื่อ-นามสกุล</b><i class="fn">&nbsp;</i><b style="width:6%;text-align:right">ชั้น</b><i class="fc">&nbsp;</i><b style="width:8%;text-align:right">เลขที่</b><i class="fno">&nbsp;</i></div>
     </div>
-    <div class="oinst"><b>คำชี้แจง</b> ฝนวงกลมตัวเลือกที่ต้องการให้เต็มวงด้วยดินสอ 2B หรือปากกาสีเข้ม ห้ามขีดฆ่าหรือทำเครื่องหมายอื่นนอกวงกลม</div>
+    <div class="oinst">ฝนวงกลมคำตอบที่ถูกต้องให้เต็มวงด้วยดินสอ 2B หรือปากกาสีเข้ม ห้ามขีดฆ่า/ทำเครื่องหมายอื่นนอกวงกลม</div>
   </div>`;
   pos.forEach(p=>{
     b+=`<div class="onum" style="left:${p.numX}%;top:${p.y}%">${p.q+1}</div>`;
     p.bx.forEach((x,j)=>{b+=`<div class="obub" style="left:${x}%;top:${p.y}%">${L[j]}</div>`});
   });
-  b+=`<div class="ofoot">รักษาความสะอาดของกระดาษคำตอบ ห้ามพับหรือยับ</div>`;
-  return `<div class="sheetA5"><div class="osheet" id="bubbleSheet">${b}</div></div>`;
+  return `<div class="osheetOuter"><div class="sheetA5"><div class="osheet" id="bubbleSheet">${b}</div></div></div>`;
 }
+// ---------- ป๊อปอัปแสดง/พิมพ์เอกสาร (ไม่เปลี่ยนหน้า) ----------
+function openModal(title,bodyHTML,onDoc){
+  $('modalTitle').textContent=title;
+  $('modalBody').innerHTML=bodyHTML;
+  $('modalDoc').onclick=onDoc||(()=>{});
+  $('modalDoc').hidden=!onDoc;
+  $('sheetModal').hidden=false;
+  document.body.classList.add('printingModal');
+}
+function closeModal(){$('sheetModal').hidden=true;document.body.classList.remove('printingModal')}
+$('modalClose').onclick=closeModal;
+$('modalPrint').onclick=()=>window.print();
+$('sheetModal').addEventListener('click',e=>{if(e.target.id==='sheetModal')closeModal()});
+
 $('goSheet').onclick=()=>{
   const ex=gradeExamCache;if(!ex)return;
-  show('create');
-  $('out').innerHTML=`<div class="bar"><div><b>กระดาษคำตอบ: ${esc(ex.title||'')}</b></div><div><button id="shBack" class="ghost">← กลับ</button><button id="shPrint">พิมพ์ / บันทึก PDF</button></div></div>`+answerSheetHTML(ex);
-  $('shPrint').onclick=()=>window.print();
-  $('shBack').onclick=()=>show('grade');
+  openModal('กระดาษคำตอบ: '+(ex.title||''),answerSheetHTML(ex),()=>downloadSheetDoc(ex));
 };
+
+function downloadSheetDoc(ex){
+  const o=ex.meta,n=ex.questions.length,pos=bubbleLayout(n);
+  const cols=n>15?2:1,perCol=Math.ceil(n/cols);
+  let b=`<div style="text-align:center">${o.org?`<p><b>${esc(o.org)}</b></p>`:''}<h2>กระดาษคำตอบ</h2>
+  <p>${esc(ex.title||'')}<br>วิชา${esc(o.subject)} ${esc(o.grade)} · ${n} ข้อ${o.term?` · ${esc(o.term)}`:''}</p></div>
+  <p>ชื่อ-นามสกุล ........................................................ ชั้น .............. เลขที่ ..........</p>
+  <p style="border:1pt solid #000;padding:4pt 8pt">ฝนวงกลมคำตอบที่ถูกต้องให้เต็มวงด้วยดินสอ 2B หรือปากกาสีเข้ม ห้ามขีดฆ่า/ทำเครื่องหมายอื่นนอกวงกลม</p>
+  <table style="width:100%;border-collapse:collapse"><tr>`;
+  for(let c=0;c<cols;c++)b+=`<td style="border:none;vertical-align:top;width:${100/cols}%">`+
+    `<table style="width:100%;border-collapse:collapse">`+
+    Array.from({length:Math.min(perCol,n-c*perCol)}).map((_,r)=>{
+      const i=c*perCol+r;
+      return `<tr><td style="border:1pt solid #999;padding:3pt 6pt;font-weight:bold">${i+1}</td>`+
+        L.map(l=>`<td style="border:1pt solid #999;padding:3pt 10pt;text-align:center">( ${l} )</td>`).join('')+`</tr>`;
+    }).join('')+`</table></td>`;
+  b+=`</tr></table>`;
+  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>กระดาษคำตอบ</title>
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->
+<style>@page{size:148mm 210mm;margin:10mm}body{font-family:'TH Sarabun New','Sarabun',Tahoma,sans-serif;font-size:15pt;line-height:1.3}p{margin:0 0 4pt 0}h2{font-size:18pt;margin:0 0 4pt 0}</style></head><body>${b}</body></html>`;
+  const blob=new Blob(['\ufeff',html],{type:'application/msword'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=('กระดาษคำตอบ_'+(ex.title||'exam')).replace(/[\\/:*?"<>|]+/g,'_').trim()+'.doc';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
 
 let gradeExamCache=null,camStream=null,shotImg=null;
 async function initGrade(){
