@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ระบบสร้างข้อสอบด้วย AI</title>
+<title>ระบบสร้างข้อสอบ</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai+Looped:wght@400;500;700&family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#eaf0f5;--card:#fff;--ink:#1c2733;--mute:#5d6b7a;--line:#cfd9e3;--brand:#17405c;--brand2:#e9f1f7;--bad:#c93c3c;--badbg:#fdeaea;--ok:#1d7a4d;--okbg:#e3f5eb}
@@ -195,11 +195,11 @@ td,th{border:1px solid #000;padding:3px 6px;text-align:center}
   <p class="sub">กรอกรายละเอียด แล้วให้ AI ออกข้อสอบปรนัยพร้อมเฉลย</p>
 
   <label for="org">ชื่อโรงเรียน / หน่วยงาน</label>
-  <input id="org" placeholder="เช่น โรงเรียนสวนกุหลาบวิทยาลัย">
+  <input id="org" placeholder="เช่น โรงเรียนบ้านเหมือดป่าตอง">
   <label for="subject">วิชาที่สอบ</label>
   <input id="subject" placeholder="เช่น วิทยาศาสตร์, คณิตศาสตร์">
   <div class="row">
-    <div><label for="grade">ชั้นเรียน</label><input id="grade" placeholder="เช่น ม.2"></div>
+    <div><label for="grade">ชั้นเรียน</label><input id="grade" placeholder="เช่น ป.6"></div>
     <div><label for="count">จำนวนข้อ</label><input id="count" type="number" min="1" max="30" value="10"></div>
   </div>
   <div class="row">
@@ -289,6 +289,9 @@ service cloud.firestore {
     match /users/{uid}/exams/{examId} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
+    match /users/{uid}/results/{resultId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }</pre><button type="button" id="rulesCopy" style="padding:4px 10px;font-size:.85rem">คัดลอก Rules</button></li>
 <li>วาง <b>firebaseConfig</b> จากข้อ 2 ในช่องด้านล่าง แล้วกด <b>เชื่อมต่อ</b> เมื่อสำเร็จจะขึ้นสถานะสีเขียว และเมนูซ้ายล่างขึ้น "☁ เชื่อม Firebase แล้ว"</li>
@@ -368,16 +371,16 @@ service cloud.firestore {
 </div>
 </section>
 
+</div></div>
+
 <div class="modalOv" id="sheetModal" hidden>
   <div class="modalBox">
     <div class="modalBar"><b id="modalTitle" style="align-self:center"></b>
-      <div><button id="modalDoc">📄 ดาวน์โหลดเอกสาร (.doc)</button><button id="modalPrint">🖨️ พิมพ์ / บันทึก PDF</button><button id="modalClose" class="ghost">✕ ปิด</button></div>
+      <div><button id="modalImg">🖼️ ดาวน์โหลดรูปภาพ (.png)</button><button id="modalPrint">🖨️ พิมพ์ / บันทึก PDF</button><button id="modalClose" class="ghost">✕ ปิด</button></div>
     </div>
     <div id="modalBody"></div>
   </div>
 </div>
-
-</div></div>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -491,8 +494,8 @@ $('loadTopics').onclick=async()=>{
     const topics=Array.isArray(d.topics)?d.topics:[];
     if(!topics.length)throw new Error('ไม่พบหัวข้อจาก AI');
     selTopics=new Set();
-    $('topicGrid').innerHTML=topics.map((t,i)=>`<label class="chip"><input type="checkbox" data-t="${esc(t)}" checked>${esc(t)}</label>`).join('');
-    $('topicGrid').querySelectorAll('input').forEach(c=>{selTopics.add(c.dataset.t);c.onchange=()=>{c.checked?selTopics.add(c.dataset.t):selTopics.delete(c.dataset.t)}});
+    $('topicGrid').innerHTML=topics.map((t,i)=>`<label class="chip"><input type="checkbox" data-t="${esc(t)}">${esc(t)}</label>`).join('');
+    $('topicGrid').querySelectorAll('input').forEach(c=>{c.onchange=()=>{c.checked?selTopics.add(c.dataset.t):selTopics.delete(c.dataset.t)}});
     say('');
   }catch(e){say('ค้นหาหัวข้อไม่สำเร็จ: '+e.message,'err')}
   finally{$('loadTopics').disabled=false;$('loadTopics').textContent='🔍 ค้นหาหัวข้อ/ตัวชี้วัดของวิชานี้'}
@@ -810,11 +813,11 @@ function answerSheetHTML(exam){
   return `<div class="osheetOuter"><div class="sheetA5"><div class="osheet" id="bubbleSheet">${b}</div></div></div>`;
 }
 // ---------- ป๊อปอัปแสดง/พิมพ์เอกสาร (ไม่เปลี่ยนหน้า) ----------
-function openModal(title,bodyHTML,onDoc){
+function openModal(title,bodyHTML,onImg){
   $('modalTitle').textContent=title;
   $('modalBody').innerHTML=bodyHTML;
-  $('modalDoc').onclick=onDoc||(()=>{});
-  $('modalDoc').hidden=!onDoc;
+  $('modalImg').onclick=onImg||(()=>{});
+  $('modalImg').hidden=!onImg;
   $('sheetModal').hidden=false;
   document.body.classList.add('printingModal');
 }
@@ -825,53 +828,97 @@ $('sheetModal').addEventListener('click',e=>{if(e.target.id==='sheetModal')close
 
 $('goSheet').onclick=()=>{
   const ex=gradeExamCache;if(!ex)return;
-  openModal('กระดาษคำตอบ: '+(ex.title||''),answerSheetHTML(ex),()=>downloadSheetDoc(ex));
+  openModal('กระดาษคำตอบ: '+(ex.title||''),answerSheetHTML(ex),()=>downloadSheetImage(ex));
 };
 
-function downloadSheetDoc(ex){
-  // สร้างไฟล์ .doc ด้วยตำแหน่ง absolute หน่วย mm ให้ตรงกับสัดส่วนในหน้าเว็บ (กระดาษ A5 = 148 x 210 มม.)
-  const MW=148,MH=210,o=ex.meta,n=ex.questions.length,pos=bubbleLayout(n);
-  const px=x=>(x/100*MW).toFixed(2),py=y=>(y/100*MH).toFixed(2);
-  const absBox=(leftPct,topPct,wPct,hPctAxis,css)=>
-    `<div style="position:absolute;left:${px(leftPct)}mm;top:${py(topPct)}mm;${css}">`;
-  let b='';
-  // จุดดำ 4 มุม (กว้าง 4% ของความกว้างหน้า เป็นสี่เหลี่ยมจัตุรัส)
-  const cmSize=(4/100*MW).toFixed(2);
-  const cmTopPct=100-1.5-4*(MW/MH); // 4%ความกว้าง แปลงเป็น%ความสูงเพื่อหาตำแหน่งขอบล่าง
-  [[1.5,1.5],[100-1.5-4,1.5],[1.5,cmTopPct],[100-1.5-4,cmTopPct]].forEach(([l,t])=>{
-    b+=`<div style="position:absolute;left:${px(l)}mm;top:${py(t)}mm;width:${cmSize}mm;height:${cmSize}mm;background:#000"></div>`;
-  });
+// วาดกระดาษคำตอบลง canvas ด้วยตำแหน่งเดียวกับ bubbleLayout ที่ใช้แสดงผลและตรวจภาพ
+// ให้ผลลัพธ์ตรงกับที่เห็นในเว็บทุกจุด แล้วส่งออกเป็นไฟล์ภาพ (A5 ที่ 200dpi)
+async function sheetToCanvas(ex){
+  try{if(document.fonts&&document.fonts.ready)await document.fonts.ready}catch(e){}
+  const MW=148,MH=210,DPI=200;
+  const W=Math.round(MW*DPI/25.4),H=Math.round(MH*DPI/25.4);
+  const o=ex.meta,n=ex.questions.length,pos=bubbleLayout(n);
+  const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#000';ctx.strokeStyle='#000';
+  const px=p=>p/100*W,py=p=>p/100*H;
+  const FONT="'Sarabun','Noto Sans Thai Looped',sans-serif";
+  function fitSize(text,maxW,baseSize,bold){
+    let size=baseSize;
+    ctx.font=`${bold?'bold ':''}${size}px ${FONT}`;
+    while(ctx.measureText(text).width>maxW&&size>8){size-=1;ctx.font=`${bold?'bold ':''}${size}px ${FONT}`}
+    return size;
+  }
+  // จุดดำ 4 มุม
+  const cmW=0.04*W,cmTopPct=100-1.5-4*(W/H);
+  [[1.5,1.5],[100-1.5-4,1.5],[1.5,cmTopPct],[100-1.5-4,cmTopPct]].forEach(([l,t])=>{ctx.fillRect(px(l),py(t),cmW,cmW)});
   // หัวกระดาษ
-  b+=`<div style="position:absolute;left:${px(9)}mm;top:${py(2.5)}mm;width:${px(82)}mm;text-align:center">
-    ${o.org?`<div style="font-size:11pt;font-weight:bold">${esc(o.org)}</div>`:''}
-    <div style="font-size:15pt;font-weight:bold;margin-top:2pt">กระดาษคำตอบ</div>
-    <div style="font-size:9.5pt;margin-top:2pt">วิชา${esc(o.subject)} ${esc(o.grade)} · ${n} ข้อ${o.term?` · ${esc(o.term)}`:''}</div>
-    <div style="font-size:9pt;text-align:left;margin-top:8pt;white-space:nowrap">
-      <b>ชื่อ-นามสกุล</b><span style="display:inline-block;width:38%;border-bottom:1pt solid #000">&nbsp;</span>
-      <b style="margin-left:6pt">ชั้น</b><span style="display:inline-block;width:12%;border-bottom:1pt solid #000">&nbsp;</span>
-      <b style="margin-left:6pt">เลขที่</b><span style="display:inline-block;width:12%;border-bottom:1pt solid #000">&nbsp;</span>
-    </div>
-    <div style="font-size:7.5pt;text-align:left;margin-top:6pt;border:1pt solid #000;padding:3pt 6pt">ฝนวงกลมคำตอบที่ถูกต้องให้เต็มวงด้วยดินสอ 2B หรือปากกาสีเข้ม ห้ามขีดฆ่า/ทำเครื่องหมายอื่นนอกวงกลม</div>
-  </div>`;
-  // ข้อ/วงกลมคำตอบ (ใช้ตำแหน่งเดียวกับที่แสดงบนเว็บทุกประการ)
-  const bw=(3.2/100*MW).toFixed(2);
+  const maxTextW=px(82);
+  ctx.textAlign='center';
+  let cy=py(2.8);
+  if(o.org){
+    const s=fitSize(o.org,maxTextW,W*0.031,true);
+    ctx.font=`bold ${s}px ${FONT}`;cy+=s*0.9;ctx.fillText(o.org,W/2,cy);cy+=s*0.35;
+  }
+  {const s=W*0.04;ctx.font=`bold ${s}px ${FONT}`;cy+=s*0.9;ctx.fillText('กระดาษคำตอบ',W/2,cy);cy+=s*0.35;}
+  {
+    const t=`วิชา${o.subject} ${o.grade} · ${n} ข้อ${o.term?` · ${o.term}`:''}`;
+    const s=fitSize(t,maxTextW,W*0.025,false);
+    ctx.font=`${s}px ${FONT}`;cy+=s*0.9;ctx.fillText(t,W/2,cy);cy+=s*0.75;
+  }
+  // แถวชื่อ-นามสกุล / ชั้น / เลขที่
+  {
+    const s=W*0.023;ctx.font=`${s}px ${FONT}`;ctx.textAlign='left';ctx.lineWidth=1;
+    let fx=px(9),fy=cy+s*0.9;
+    const draw=(label,lineW)=>{
+      ctx.fillText(label,fx,fy);const w=ctx.measureText(label).width;fx+=w+6;
+      const ly=fy+s*0.18;ctx.beginPath();ctx.moveTo(fx,ly);ctx.lineTo(fx+lineW,ly);ctx.stroke();fx+=lineW+14;
+    };
+    draw('ชื่อ-นามสกุล',W*0.30);draw('ชั้น',W*0.11);draw('เลขที่',W*0.11);
+    cy=fy+s*0.8;ctx.textAlign='center';
+  }
+  // กรอบคำชี้แจง
+  {
+    const s=W*0.019;ctx.font=`${s}px ${FONT}`;ctx.textAlign='left';
+    const text='ฝนวงกลมคำตอบที่ถูกต้องให้เต็มวงด้วยดินสอ 2B หรือปากกาสีเข้ม ห้ามขีดฆ่า/ทำเครื่องหมายอื่นนอกวงกลม';
+    const boxX=px(9),boxY=cy+s*0.5,boxW=maxTextW,pad=W*0.012;
+    let lines=[],cur='';
+    for(const ch of text){const t2=cur+ch;if(ctx.measureText(t2).width>boxW-2*pad&&cur){lines.push(cur);cur=ch}else cur=t2}
+    if(cur)lines.push(cur);
+    const lineH=s*1.35,boxH=lineH*lines.length+2*pad;
+    ctx.strokeRect(boxX,boxY,boxW,boxH);
+    lines.forEach((ln,i)=>ctx.fillText(ln,boxX+pad,boxY+pad+(i+0.85)*lineH));
+    ctx.textAlign='center';
+  }
+  // ข้อ/วงกลมคำตอบ — ตำแหน่งจาก bubbleLayout เดียวกับที่ใช้แสดงผลและตรวจภาพ
   pos.forEach(p=>{
-    b+=`<div style="position:absolute;left:${px(p.numX)}mm;top:${py(p.y)}mm;transform:translate(-100%,-50%);font-size:8pt;font-weight:bold">${p.q+1}</div>`;
+    const y=py(p.y),numS=W*0.021;
+    ctx.font=`bold ${numS}px ${FONT}`;ctx.textAlign='right';
+    ctx.fillText(String(p.q+1),px(p.numX),y+numS*0.35);
+    ctx.textAlign='center';
+    const r=(3.2/100*W)/2,letS=W*0.019;
     p.bx.forEach((x,j)=>{
-      b+=`<div style="position:absolute;left:${px(x)}mm;top:${py(p.y)}mm;transform:translate(-50%,-50%);width:${bw}mm;height:${bw}mm;border:1pt solid #000;border-radius:50%;text-align:center;line-height:${bw}mm;font-size:7.5pt">${L[j]}</div>`;
+      const cxp=px(x);
+      ctx.beginPath();ctx.arc(cxp,y,r,0,Math.PI*2);ctx.lineWidth=1.4;ctx.stroke();
+      ctx.font=`${letS}px ${FONT}`;ctx.fillText(L[j],cxp,y+letS*0.35);
     });
   });
-  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>กระดาษคำตอบ</title>
-<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
-<style>@page{size:148mm 210mm;margin:0}body{margin:0;font-family:'TH Sarabun New','Sarabun',Tahoma,sans-serif}
-.page{position:relative;width:${MW}mm;height:${MH}mm}</style></head>
-<body><div class="page">${b}</div></body></html>`;
-  const blob=new Blob(['\ufeff',html],{type:'application/msword'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=('กระดาษคำตอบ_'+(ex.title||'exam')).replace(/[\\/:*?"<>|]+/g,'_').trim()+'.doc';
-  document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+  return canvas;
+}
+async function downloadSheetImage(ex){
+  const btn=$('modalImg');const old=btn.textContent;btn.disabled=true;btn.textContent='กำลังสร้างภาพ...';
+  try{
+    const canvas=await sheetToCanvas(ex);
+    await new Promise(res=>canvas.toBlob(blob=>{
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=('กระดาษคำตอบ_'+(ex.title||'exam')).replace(/[\\/:*?"<>|]+/g,'_').trim()+'.png';
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),1500);res();
+    },'image/png'));
+  }catch(e){alert('สร้างไฟล์ภาพไม่สำเร็จ: '+e.message)}
+  finally{btn.disabled=false;btn.textContent=old}
 }
 
 let gradeExamCache=null,camStream=null,shotImg=null;
