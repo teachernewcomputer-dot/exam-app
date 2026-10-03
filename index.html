@@ -778,7 +778,7 @@ function bubbleLayout(count){
   // เผื่อพื้นที่หัวกระดาษแบบทางการ (ชื่อโรงเรียน/ชื่อ-สกุล/ชั้น/เลขที่/คำชี้แจง) ไว้ด้านบน 30%
   const cols=count>15?2:1;
   const perCol=Math.ceil(count/cols);
-  const yTop=38,yBot=97,xColW=96/cols;
+  const yTop=38,yBot=90,xColW=96/cols;
   const pos=[];
   for(let i=0;i<count;i++){
     const col=Math.floor(i/perCol),row=i%perCol;
@@ -829,24 +829,43 @@ $('goSheet').onclick=()=>{
 };
 
 function downloadSheetDoc(ex){
-  const o=ex.meta,n=ex.questions.length,pos=bubbleLayout(n);
-  const cols=n>15?2:1,perCol=Math.ceil(n/cols);
-  let b=`<div style="text-align:center">${o.org?`<p><b>${esc(o.org)}</b></p>`:''}<h2>กระดาษคำตอบ</h2>
-  <p>${esc(ex.title||'')}<br>วิชา${esc(o.subject)} ${esc(o.grade)} · ${n} ข้อ${o.term?` · ${esc(o.term)}`:''}</p></div>
-  <p>ชื่อ-นามสกุล ........................................................ ชั้น .............. เลขที่ ..........</p>
-  <p style="border:1pt solid #000;padding:4pt 8pt">ฝนวงกลมคำตอบที่ถูกต้องให้เต็มวงด้วยดินสอ 2B หรือปากกาสีเข้ม ห้ามขีดฆ่า/ทำเครื่องหมายอื่นนอกวงกลม</p>
-  <table style="width:100%;border-collapse:collapse"><tr>`;
-  for(let c=0;c<cols;c++)b+=`<td style="border:none;vertical-align:top;width:${100/cols}%">`+
-    `<table style="width:100%;border-collapse:collapse">`+
-    Array.from({length:Math.min(perCol,n-c*perCol)}).map((_,r)=>{
-      const i=c*perCol+r;
-      return `<tr><td style="border:1pt solid #999;padding:3pt 6pt;font-weight:bold">${i+1}</td>`+
-        L.map(l=>`<td style="border:1pt solid #999;padding:3pt 10pt;text-align:center">( ${l} )</td>`).join('')+`</tr>`;
-    }).join('')+`</table></td>`;
-  b+=`</tr></table>`;
+  // สร้างไฟล์ .doc ด้วยตำแหน่ง absolute หน่วย mm ให้ตรงกับสัดส่วนในหน้าเว็บ (กระดาษ A5 = 148 x 210 มม.)
+  const MW=148,MH=210,o=ex.meta,n=ex.questions.length,pos=bubbleLayout(n);
+  const px=x=>(x/100*MW).toFixed(2),py=y=>(y/100*MH).toFixed(2);
+  const absBox=(leftPct,topPct,wPct,hPctAxis,css)=>
+    `<div style="position:absolute;left:${px(leftPct)}mm;top:${py(topPct)}mm;${css}">`;
+  let b='';
+  // จุดดำ 4 มุม (กว้าง 4% ของความกว้างหน้า เป็นสี่เหลี่ยมจัตุรัส)
+  const cmSize=(4/100*MW).toFixed(2);
+  const cmTopPct=100-1.5-4*(MW/MH); // 4%ความกว้าง แปลงเป็น%ความสูงเพื่อหาตำแหน่งขอบล่าง
+  [[1.5,1.5],[100-1.5-4,1.5],[1.5,cmTopPct],[100-1.5-4,cmTopPct]].forEach(([l,t])=>{
+    b+=`<div style="position:absolute;left:${px(l)}mm;top:${py(t)}mm;width:${cmSize}mm;height:${cmSize}mm;background:#000"></div>`;
+  });
+  // หัวกระดาษ
+  b+=`<div style="position:absolute;left:${px(9)}mm;top:${py(2.5)}mm;width:${px(82)}mm;text-align:center">
+    ${o.org?`<div style="font-size:11pt;font-weight:bold">${esc(o.org)}</div>`:''}
+    <div style="font-size:15pt;font-weight:bold;margin-top:2pt">กระดาษคำตอบ</div>
+    <div style="font-size:9.5pt;margin-top:2pt">วิชา${esc(o.subject)} ${esc(o.grade)} · ${n} ข้อ${o.term?` · ${esc(o.term)}`:''}</div>
+    <div style="font-size:9pt;text-align:left;margin-top:8pt;white-space:nowrap">
+      <b>ชื่อ-นามสกุล</b><span style="display:inline-block;width:38%;border-bottom:1pt solid #000">&nbsp;</span>
+      <b style="margin-left:6pt">ชั้น</b><span style="display:inline-block;width:12%;border-bottom:1pt solid #000">&nbsp;</span>
+      <b style="margin-left:6pt">เลขที่</b><span style="display:inline-block;width:12%;border-bottom:1pt solid #000">&nbsp;</span>
+    </div>
+    <div style="font-size:7.5pt;text-align:left;margin-top:6pt;border:1pt solid #000;padding:3pt 6pt">ฝนวงกลมคำตอบที่ถูกต้องให้เต็มวงด้วยดินสอ 2B หรือปากกาสีเข้ม ห้ามขีดฆ่า/ทำเครื่องหมายอื่นนอกวงกลม</div>
+  </div>`;
+  // ข้อ/วงกลมคำตอบ (ใช้ตำแหน่งเดียวกับที่แสดงบนเว็บทุกประการ)
+  const bw=(3.2/100*MW).toFixed(2);
+  pos.forEach(p=>{
+    b+=`<div style="position:absolute;left:${px(p.numX)}mm;top:${py(p.y)}mm;transform:translate(-100%,-50%);font-size:8pt;font-weight:bold">${p.q+1}</div>`;
+    p.bx.forEach((x,j)=>{
+      b+=`<div style="position:absolute;left:${px(x)}mm;top:${py(p.y)}mm;transform:translate(-50%,-50%);width:${bw}mm;height:${bw}mm;border:1pt solid #000;border-radius:50%;text-align:center;line-height:${bw}mm;font-size:7.5pt">${L[j]}</div>`;
+    });
+  });
   const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>กระดาษคำตอบ</title>
-<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->
-<style>@page{size:148mm 210mm;margin:10mm}body{font-family:'TH Sarabun New','Sarabun',Tahoma,sans-serif;font-size:15pt;line-height:1.3}p{margin:0 0 4pt 0}h2{font-size:18pt;margin:0 0 4pt 0}</style></head><body>${b}</body></html>`;
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
+<style>@page{size:148mm 210mm;margin:0}body{margin:0;font-family:'TH Sarabun New','Sarabun',Tahoma,sans-serif}
+.page{position:relative;width:${MW}mm;height:${MH}mm}</style></head>
+<body><div class="page">${b}</div></body></html>`;
   const blob=new Blob(['\ufeff',html],{type:'application/msword'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
