@@ -156,10 +156,18 @@ td,th{border:1px solid #000;padding:3px 6px;text-align:center}
 @media print{.modalOv{position:static;background:none;padding:0;overflow:visible}.modalBar{display:none}body.printingModal>.shell{display:none!important}}
 
 /* กล้องสแกน */
-.camwrap{position:relative;width:100%;max-width:420px;margin:0 auto;aspect-ratio:0.7072;background:#111;border-radius:10px;overflow:hidden;border:2px dashed var(--brand)}
+.camwrap{position:relative;width:100%;max-width:420px;margin:0 auto;aspect-ratio:0.7072;background:#111;border-radius:10px;overflow:hidden;border:2px dashed var(--brand);transition:border-color .2s}
+.camwrap.ready{border-color:var(--ok)}
 .camwrap video,.camwrap canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.camwrap .hint{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:10px;pointer-events:none}
-.camwrap .hint span{background:rgba(0,0,0,.55);color:#fff;font-size:.78rem;padding:4px 10px;border-radius:99px}
+.camwrap .hint{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:10px;pointer-events:none;z-index:3}
+.camwrap .hint span{background:rgba(0,0,0,.6);color:#fff;font-size:.78rem;padding:4px 10px;border-radius:99px;text-align:center}
+.camwrap.ready .hint span{background:var(--ok)}
+.cguide{position:absolute;width:9%;aspect-ratio:1;pointer-events:none;color:#fff;transition:color .2s;z-index:2;filter:drop-shadow(0 0 2px rgba(0,0,0,.8))}
+.camwrap.ready .cguide{color:var(--ok)}
+.cguide.tl{top:4%;left:4%;border-top:4px solid currentColor;border-left:4px solid currentColor}
+.cguide.tr{top:4%;right:4%;border-top:4px solid currentColor;border-right:4px solid currentColor}
+.cguide.bl{bottom:4%;left:4%;border-bottom:4px solid currentColor;border-left:4px solid currentColor}
+.cguide.br{bottom:4%;right:4%;border-bottom:4px solid currentColor;border-right:4px solid currentColor}
 
 /* ทานผลตรวจ */
 .rv{border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-bottom:8px;background:var(--card);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -199,13 +207,16 @@ td,th{border:1px solid #000;padding:3px 6px;text-align:center}
   <label for="subject">วิชาที่สอบ</label>
   <input id="subject" placeholder="เช่น วิทยาศาสตร์, คณิตศาสตร์">
   <div class="row">
-    <div><label for="grade">ชั้นเรียน</label><input id="grade" placeholder="เช่น ม.2"></div>
-    <div><label for="count">จำนวนข้อ</label><input id="count" type="number" min="1" max="30" value="10"></div>
-  </div>
-  <div class="row">
-    <div><label for="term">ภาคเรียน / ปีการศึกษา</label><input id="term" placeholder="เช่น 1/2569"></div>
+    <div><label for="grade">ชั้นเรียน</label><input id="grade" placeholder="เช่น ป.6"></div>
     <div><label for="time">เวลาสอบ (นาที)</label><input id="time" type="number" min="5" value="30"></div>
   </div>
+  <label for="term">ภาคเรียน / ปีการศึกษา</label>
+  <input id="term" placeholder="เช่น 1/2569">
+  <div class="row">
+    <div><label for="mcCount">ข้อปรนัย (4 ตัวเลือก)</label><input id="mcCount" type="number" min="0" max="30" value="10"></div>
+    <div><label for="subjCount">ข้ออัตนัย (เขียนตอบ)</label><input id="subjCount" type="number" min="0" max="20" value="0"></div>
+  </div>
+  <p class="note" id="countNote">ต้องมีอย่างน้อย 1 ข้อรวมกัน · ข้ออัตนัยจะไม่อยู่ในกระดาษคำตอบแบบฝนวงกลม ต้องตรวจด้วยตนเอง</p>
 
   <label>รูปแบบการออกข้อสอบ</label>
   <div class="modes">
@@ -327,7 +338,8 @@ service cloud.firestore {
   <div id="camStage" style="margin-top:14px">
     <div class="camwrap" id="camwrap">
       <video id="camVideo" autoplay playsinline muted></video>
-      <div class="hint"><span>จัดให้ขอบกระดาษคำตอบและจุดดำ 4 มุม อยู่พอดีกรอบนี้</span></div>
+      <div class="cguide tl"></div><div class="cguide tr"></div><div class="cguide bl"></div><div class="cguide br"></div>
+      <div class="hint"><span id="camHintText">จัดจุดดำ 4 มุมของกระดาษคำตอบให้ตรงกับกรอบมุมสีขาว</span></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:10px;max-width:420px;margin-left:auto;margin-right:auto">
       <button id="camStart" style="flex:1">📷 เปิดกล้อง</button>
@@ -338,9 +350,16 @@ service cloud.firestore {
 
   <div id="reviewStage" hidden>
     <canvas id="shotCanvas" style="display:none"></canvas>
-    <h2 style="border:0;margin-top:18px">ตรวจทานคำตอบ (แตะเพื่อแก้ไข)</h2>
-    <p class="note">แถบสีส้ม = ระบบไม่มั่นใจ ควรตรวจทานเป็นพิเศษ</p>
+    <h2 style="border:0;margin-top:18px">ส่วนปรนัย — ตรวจทานคำตอบ (แตะเพื่อแก้ไข)</h2>
+    <p class="note" id="reviewNote">แถบสีส้ม = ระบบไม่มั่นใจ ควรตรวจทานเป็นพิเศษ</p>
     <div id="reviewList"></div>
+    <div id="subjStage" hidden>
+      <h2>ส่วนอัตนัย — ตรวจด้วยตนเองแล้วกรอกคะแนนรวม</h2>
+      <p class="note">อ่านคำตอบที่นักเรียนเขียนในกระดาษจริง เทียบกับแนวคำตอบด้านล่าง แล้วกรอกคะแนนรวมที่ได้</p>
+      <div id="subjList"></div>
+      <label for="subjScoreInput">คะแนนรวมส่วนอัตนัยที่ได้ (เต็ม <span id="subjMaxLabel">0</span>)</label>
+      <input id="subjScoreInput" type="number" min="0" value="0">
+    </div>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button id="camRetake" class="ghost" style="flex:1">🔄 ถ่ายใหม่</button>
       <button id="gradeSave" class="primary" style="flex:1;margin:0">✅ บันทึกคะแนน</button>
@@ -421,7 +440,7 @@ function renderModelList(){
 const curModel=()=>store.get('exam_model_'+$('provider').value)||MODELS[$('provider').value][0].id;
 
 // ---------- ฟิลด์ที่จำไว้ ----------
-const FIELDS=['org','subject','grade','count','term','time','topicsExtra','level','provider'];
+const FIELDS=['org','subject','grade','mcCount','subjCount','term','time','topicsExtra','level','provider'];
 FIELDS.forEach(id=>{const v=store.get('exam_'+id);if(v!==null)$(id).value=v;$(id).addEventListener('change',()=>store.set('exam_'+id,$(id).value))});
 
 const keyName=()=>'exam_key_'+$('provider').value;
@@ -438,7 +457,7 @@ renderModelList();keyUI();
 
 // ---------- เมนู ----------
 const VIEWS=['create','lib','set','libdetail','grade','history'];
-function show(v){VIEWS.forEach(x=>{$('v-'+x).hidden=x!==v});['create','lib','set','grade','history'].forEach(x=>$('n-'+x).classList.toggle('on',x===v));if(v==='lib')loadLib();if(v==='grade')initGrade();if(v==='history')initHistory();window.scrollTo(0,0)}
+function show(v){VIEWS.forEach(x=>{$('v-'+x).hidden=x!==v});['create','lib','set','grade','history'].forEach(x=>$('n-'+x).classList.toggle('on',x===v));if(v!=='grade'&&typeof stopCam==='function')stopCam();if(v==='lib')loadLib();if(v==='grade')initGrade();if(v==='history')initHistory();window.scrollTo(0,0)}
 ['create','lib','set','grade','history'].forEach(x=>$('n-'+x).onclick=()=>show(x));
 const shell=document.querySelector('.shell');
 if(store.get('nav_collapsed')==='1')shell.classList.add('collapsed');
@@ -509,10 +528,11 @@ function topicsText(){
 // ---------- Prompt สร้างข้อสอบ ----------
 function buildPrompt(o){
   const expert=o.mode==='expert';
+  const hasMC=o.mcCount>0,hasSubj=o.subjCount>0;
   return `คุณคือครูผู้เชี่ยวชาญด้านการวัดและประเมินผล มีประสบการณ์ออกข้อสอบวิชา${o.subject} สำหรับนักเรียน${o.grade}
 
-งานของคุณ: สร้างข้อสอบปรนัย 4 ตัวเลือก จำนวน ${o.count} ข้อ
-- วิชา: ${o.subject}
+งานของคุณ: สร้างข้อสอบจำนวนรวม ${o.mcCount+o.subjCount} ข้อ แบ่งเป็น
+${hasMC?`- ข้อปรนัย 4 ตัวเลือก จำนวน ${o.mcCount} ข้อ (type:"mc")\n`:''}${hasSubj?`- ข้ออัตนัย (เขียนตอบ/อธิบาย) จำนวน ${o.subjCount} ข้อ (type:"subj")\n`:''}- วิชา: ${o.subject}
 - ระดับชั้น: ${o.grade}
 - ระดับความยาก: ${o.level}
 - หัวข้อ/เนื้อหา: ${o.topics||'ตามหลักสูตรของวิชาและระดับชั้นนี้'}
@@ -520,24 +540,34 @@ function buildPrompt(o){
 ${expert?`รูปแบบ "เชี่ยวชาญ":
 - เน้นการคิดวิเคราะห์ ประยุกต์ใช้ และแก้ปัญหาหลายขั้นตอน (ระดับ Apply, Analyze, Evaluate ตาม Bloom's Taxonomy) ไม่ใช่การท่องจำ
 - ใช้สถานการณ์จริงหรือโจทย์ปัญหาที่ต้องใช้ความเข้าใจเชิงลึก
-- ตัวเลือกหลอกต้องมาจากความเข้าใจผิดที่พบบ่อยของนักเรียน ดูสมเหตุสมผลแต่ผิด
-- อย่าให้คำตอบที่ถูกยาวหรือเด่นกว่าตัวเลือกอื่น`:`รูปแบบ "ตามหัวข้อ":
+- ตัวเลือกหลอกต้องมาจากความเข้าใจผิดที่พบบ่อยของนักเรียน ดูสมเหตุสมผลแต่ผิด (เฉพาะข้อปรนัย)
+- คำถามอัตนัยต้องให้วิเคราะห์/ประยุกต์/เชื่อมโยงความรู้ ไม่ใช่ถามความจำตรงๆ`:`รูปแบบ "ตามหัวข้อ":
 - กระจายข้อสอบให้ครอบคลุมทุกหัวข้อที่ระบุอย่างสมดุล
 - ผสมระดับความจำ ความเข้าใจ และการนำไปใช้ให้เหมาะกับระดับชั้น
 - ใช้ภาษาชัดเจน ตรงกับเนื้อหาที่นักเรียนชั้นนี้เรียน`}
 
-ข้อกำหนด:
-1. ทุกข้อมีคำตอบที่ถูกต้องเพียง 1 ข้อ และต้องถูกต้องตามหลักวิชาการจริง
+ข้อกำหนดสำหรับข้อปรนัย (type:"mc"):
+1. มีคำตอบที่ถูกต้องเพียง 1 ข้อ และต้องถูกต้องตามหลักวิชาการจริง
 2. ห้ามใช้ตัวเลือก "ถูกทุกข้อ" หรือ "ไม่มีข้อใดถูก"
 3. สลับตำแหน่งคำตอบที่ถูกให้กระจายในตัวเลือก ก, ข, ค, ง
-4. ห้ามออกข้อสอบซ้ำกัน
-5. เขียนคำอธิบายเฉลยสั้น ๆ 1-2 ประโยคว่าทำไมข้อนั้นถูก
-6. เขียนเป็นภาษาไทยทั้งหมด (ยกเว้นศัพท์เฉพาะหรือสูตร)
-7. ตัวเลือกให้เขียนแต่เนื้อหา ไม่ต้องใส่ ก. ข. ค. ง. นำหน้า
+4. ตัวเลือกให้เขียนแต่เนื้อหา ไม่ต้องใส่ ก. ข. ค. ง. นำหน้า
+5. ใส่ "choices" (อาเรย์ 4 ตัวเลือก) และ "answer" (เลขตำแหน่ง 0-3 ของข้อที่ถูก)
+
+ข้อกำหนดสำหรับข้ออัตนัย (type:"subj"):
+1. โจทย์ต้องชัดเจนว่าต้องการให้ตอบอะไร ความยาวคำตอบที่คาดหวังเท่าไหร่ (เช่น "อธิบายสั้นๆ 2-3 บรรทัด")
+2. ไม่ต้องมี "choices" หรือ "answer" แต่ให้ใส่ "modelAnswer" (แนวคำตอบ/เกณฑ์การให้คะแนนโดยย่อ สำหรับครูใช้ตรวจ)
+
+ข้อกำหนดทั่วไป:
+1. ห้ามออกข้อสอบซ้ำกัน
+2. เขียนคำอธิบายเฉลยสั้น ๆ 1-2 ประโยคว่าทำไมข้อนั้นถูก (ใส่ใน "explanation" สำหรับข้อปรนัย)
+3. เขียนเป็นภาษาไทยทั้งหมด (ยกเว้นศัพท์เฉพาะหรือสูตร)
+4. เรียงข้อปรนัยและอัตนัยสลับหรือต่อกันก็ได้ตามความเหมาะสม
 
 ตอบกลับเป็น JSON เท่านั้น ห้ามมีข้อความอื่นหรือ markdown ตามโครงสร้างนี้:
-{"title":"ชื่อแบบทดสอบ","questions":[{"topic":"หัวข้อของข้อนี้","q":"โจทย์","choices":["ตัวเลือก 1","ตัวเลือก 2","ตัวเลือก 3","ตัวเลือก 4"],"answer":0,"explanation":"เฉลยพร้อมเหตุผล"}]}
-โดย answer คือเลขตำแหน่ง 0-3 ของตัวเลือกที่ถูก`;
+{"title":"ชื่อแบบทดสอบ","questions":[
+{"type":"mc","topic":"หัวข้อของข้อนี้","q":"โจทย์","choices":["ตัวเลือก 1","ตัวเลือก 2","ตัวเลือก 3","ตัวเลือก 4"],"answer":0,"explanation":"เฉลยพร้อมเหตุผล"},
+{"type":"subj","topic":"หัวข้อของข้อนี้","q":"โจทย์อัตนัย","modelAnswer":"แนวคำตอบ/เกณฑ์การให้คะแนนโดยย่อ"}
+]}`;
 }
 const L=['ก','ข','ค','ง'];
 const clean=c=>String(c).replace(/^\s*[ก-ง๐-๙A-Da-d1-4][\.\)]\s*/,'');
@@ -596,25 +626,38 @@ $('libList').onclick=async e=>{
 // ---------- แสดงกระดาษข้อสอบ (ใช้ทั้งหน้าสร้างและคลัง) ----------
 function sheetHTML(exam){
   const o=exam.meta,n=exam.questions.length;
+  const mcN=exam.questions.filter(q=>q.type!=='subj').length,subjN=n-mcN;
+  const instParts=[];
+  if(mcN)instParts.push(`ส่วนที่ ๑ ปรนัย ๔ ตัวเลือก ${mcN} ข้อ ข้อละ ๑ คะแนน เลือกคำตอบที่ถูกต้องที่สุดเพียงข้อเดียว`);
+  if(subjN)instParts.push(`ส่วนที่ ๒ อัตนัย ${subjN} ข้อ ข้อละ ๑ คะแนน เขียนตอบในพื้นที่ที่กำหนด`);
   let h=`<div class="sheet" id="sheetPaper">
   <div class="hd">${o.org?`<p><b>${esc(o.org)}</b></p>`:''}<h3>${esc(exam.title||('แบบทดสอบวิชา'+o.subject))}</h3>
   <p>วิชา${esc(o.subject)} ${esc(o.grade)}${o.term?` ภาคเรียนที่/ปีการศึกษา ${esc(o.term)}`:''}</p></div>
   <div class="info"><span>เวลา ${esc(o.time)} นาที</span><span>จำนวน ${n} ข้อ</span><span>คะแนนเต็ม ${n} คะแนน</span></div>
   <div class="stu"><div>ชื่อ-สกุล <span style="display:inline-block;width:70%"></span></div><div>ชั้น <span style="display:inline-block;width:60%"></span></div><div>เลขที่ <span style="display:inline-block;width:55%"></span></div></div>
-  <div class="inst"><b>คำชี้แจง</b> ข้อสอบฉบับนี้เป็นแบบปรนัย ๔ ตัวเลือก มี ${n} ข้อ ข้อละ ๑ คะแนน ให้นักเรียนเลือกคำตอบที่ถูกต้องที่สุดเพียงข้อเดียว</div>`;
+  <div class="inst"><b>คำชี้แจง</b> ${instParts.join(' · ')}</div>`;
   exam.questions.forEach((q,i)=>{
-    h+=`<div class="q"><p>${i+1}. ${esc(q.q)}</p><ol>`+q.choices.map((c,j)=>`<li>${L[j]}. ${esc(clean(c))}</li>`).join('')+`</ol></div>`;
+    if(q.type==='subj'){
+      h+=`<div class="q"><p>${i+1}. ${esc(q.q)}</p>`+
+        Array.from({length:4}).map(()=>`<div style="border-bottom:1px dotted #000;height:1.7em;margin:0 0 2px 4px"></div>`).join('')+`</div>`;
+    }else{
+      h+=`<div class="q"><p>${i+1}. ${esc(q.q)}</p><ol>`+q.choices.map((c,j)=>`<li>${L[j]}. ${esc(clean(c))}</li>`).join('')+`</ol></div>`;
+    }
   });
   h+=`<div class="hd" style="margin-top:20px">--- หมดคำถาม ---</div>
-  <div class="keypage"><p class="keyh">เฉลยข้อสอบ</p><div class="hd"><p>วิชา${esc(o.subject)} ${esc(o.grade)}</p></div>
-  <table><tr>${exam.questions.map((_,i)=>`<th>${i+1}</th>`).join('')}</tr><tr>${exam.questions.map(q=>`<td>${L[q.answer]}</td>`).join('')}</tr></table>
-  <p><b>เฉลยละเอียด</b></p>`+exam.questions.map((q,i)=>`<div class="exp"><b>ข้อ ${i+1}. ตอบ ${L[q.answer]}</b>${q.topic?` <i>(${esc(q.topic)})</i>`:''} — ${esc(q.explanation)}</div>`).join('')+`</div></div>`;
+  <div class="keypage"><p class="keyh">เฉลยข้อสอบ</p><div class="hd"><p>วิชา${esc(o.subject)} ${esc(o.grade)}</p></div>`;
+  if(mcN)h+=`<table><tr>${exam.questions.map((q,i)=>q.type!=='subj'?`<th>${i+1}</th>`:'').join('')}</tr><tr>${exam.questions.map(q=>q.type!=='subj'?`<td>${L[q.answer]}</td>`:'').join('')}</tr></table>`;
+  h+=`<p><b>เฉลยละเอียด</b></p>`+exam.questions.map((q,i)=>q.type==='subj'?
+    `<div class="exp"><b>ข้อ ${i+1}. (อัตนัย)</b>${q.topic?` <i>(${esc(q.topic)})</i>`:''} — แนวคำตอบ: ${esc(q.modelAnswer||'')}</div>`:
+    `<div class="exp"><b>ข้อ ${i+1}. ตอบ ${L[q.answer]}</b>${q.topic?` <i>(${esc(q.topic)})</i>`:''} — ${esc(q.explanation||'')}</div>`
+  ).join('')+`</div></div>`;
   return h;
 }
 function copyText(exam,withAns){
   const o=exam.meta;
-  let t=`${exam.title||''}\nวิชา${o.subject} ${o.grade} เวลา ${o.time} นาที\n\n`+exam.questions.map((q,i)=>`${i+1}. ${q.q}\n`+q.choices.map((c,j)=>`   ${L[j]}. ${clean(c)}`).join('\n')).join('\n\n');
-  if(withAns)t+='\n\nเฉลย\n'+exam.questions.map((q,i)=>`${i+1}. ${L[q.answer]} — ${q.explanation}`).join('\n');
+  let t=`${exam.title||''}\nวิชา${o.subject} ${o.grade} เวลา ${o.time} นาที\n\n`+exam.questions.map((q,i)=>`${i+1}. ${q.q}\n`+
+    (q.type==='subj'?'   (เขียนตอบ)':q.choices.map((c,j)=>`   ${L[j]}. ${clean(c)}`).join('\n'))).join('\n\n');
+  if(withAns)t+='\n\nเฉลย\n'+exam.questions.map((q,i)=>q.type==='subj'?`${i+1}. (อัตนัย) แนวคำตอบ: ${q.modelAnswer||''}`:`${i+1}. ${L[q.answer]} — ${q.explanation}`).join('\n');
   return t;
 }
 
@@ -627,9 +670,11 @@ function renderPicker(){
   let h=`<div class="pickbar"><b>เลือกข้อที่ต้องการ (${n}/${pool.questions.length} ข้อ)</b>
   <div><button id="pAll" class="ghost">เลือกทั้งหมด</button><button id="pNone" class="ghost">ไม่เลือกเลย</button><button class="primary" id="pGo" style="width:auto;margin:0">จัดเป็นแบบฟอร์มข้อสอบ →</button></div></div>`;
   pool.questions.forEach((q,i)=>{
-    h+=`<div class="pick"><input type="checkbox" data-i="${i}" ${q._sel?'checked':''}><div class="qc"><p>${i+1}. ${esc(q.q)}</p><ul>`+
-      q.choices.map((c,j)=>`<li${j===q.answer?' class="co"':''}>${L[j]}. ${esc(clean(c))}${j===q.answer?' ✓':''}</li>`).join('')+
-      `</ul></div></div>`;
+    const tag=q.type==='subj'?'<span class="tag">อัตนัย</span>':'<span class="tag">ปรนัย</span>';
+    h+=`<div class="pick"><input type="checkbox" data-i="${i}" ${q._sel?'checked':''}><div class="qc"><p>${i+1}. ${esc(q.q)} ${tag}</p>`+
+      (q.type==='subj'?`<p class="note" style="margin:0">แนวคำตอบ: ${esc(q.modelAnswer||'')}</p>`:
+      `<ul>`+q.choices.map((c,j)=>`<li${j===q.answer?' class="co"':''}>${L[j]}. ${esc(clean(c))}${j===q.answer?' ✓':''}</li>`).join('')+`</ul>`)+
+      `</div></div>`;
   });
   $('out').innerHTML=h;
   $('out').querySelectorAll('.pick input').forEach(c=>c.onchange=()=>{pool.questions[+c.dataset.i]._sel=c.checked;renderPicker()});
@@ -656,19 +701,26 @@ function renderExamView(){
 }
 
 // ---------- สร้างข้อสอบ (เรียก AI) ----------
+function validQ(q){
+  if(!q||!q.q)return false;
+  if(q.type==='subj')return !!(q.modelAnswer&&String(q.modelAnswer).trim());
+  return Array.isArray(q.choices)&&q.choices.length>=2&&Number.isInteger(q.answer)&&q.answer>=0&&q.answer<q.choices.length;
+}
 $('go').onclick=async()=>{
-  const o={org:$('org').value.trim(),subject:$('subject').value.trim(),grade:$('grade').value.trim(),count:Math.min(30,Math.max(1,parseInt($('count').value)||10)),
+  const o={org:$('org').value.trim(),subject:$('subject').value.trim(),grade:$('grade').value.trim(),
+    mcCount:Math.min(30,Math.max(0,parseInt($('mcCount').value)||0)),subjCount:Math.min(20,Math.max(0,parseInt($('subjCount').value)||0)),
     term:$('term').value.trim(),time:$('time').value||30,mode:document.querySelector('input[name=mode]:checked').value,topics:topicsText(),level:$('level').value};
   if(!$('keyNew').hidden&&$('key').value.trim()){store.set(keyName(),$('key').value.trim());$('key').value='';keyUI()}
   const key=store.get(keyName());
   if(!o.subject||!o.grade)return say('กรุณาระบุวิชาและชั้นเรียน','err');
+  if(o.mcCount+o.subjCount<1)return say('กรุณาระบุจำนวนข้อปรนัยหรืออัตนัยอย่างน้อย 1 ข้อ','err');
   if(o.mode==='topic'&&!o.topics)return say('โหมด “ตามหัวข้อ” ต้องระบุหัวข้ออย่างน้อย 1 หัวข้อ (กดค้นหาหัวข้อ หรือพิมพ์เอง)','err');
   if(!key){show('set');return say('กรุณาใส่ API Key ในส่วนตั้งค่า AI','err')}
   FIELDS.forEach(id=>store.set('exam_'+id,$(id).value));
   $('go').disabled=true;$('go').textContent='กำลังสร้างข้อสอบ...';say('AI กำลังออกข้อสอบ อาจใช้เวลา 10–60 วินาที','info');
   try{
     const d=parseJSON(await callAI(buildPrompt(o)));
-    const qs=(d.questions||[]).filter(q=>q&&Array.isArray(q.choices)&&q.choices.length>=2&&Number.isInteger(q.answer)&&q.answer>=0&&q.answer<q.choices.length).map(q=>({...q,_sel:true}));
+    const qs=(d.questions||[]).filter(validQ).map(q=>({...q,type:q.type==='subj'?'subj':'mc',_sel:true}));
     if(!qs.length)throw new Error('รูปแบบข้อสอบไม่ถูกต้อง ลองสร้างใหม่อีกครั้ง');
     pool={title:d.title,meta:o,questions:qs};
     renderPicker();say('');
@@ -698,18 +750,26 @@ function downloadDoc(ex,withAns){
   <table style="width:100%;border-collapse:collapse;border-top:1.5pt solid #000;border-bottom:1.5pt solid #000"><tr>
   <td style="border:none;text-align:left">เวลา ${esc(o.time)} นาที</td><td style="border:none;text-align:center">จำนวน ${n} ข้อ</td><td style="border:none;text-align:right">คะแนนเต็ม ${n} คะแนน</td></tr></table>
   <p>ชื่อ-สกุล ........................................................ ชั้น ................ เลขที่ ..........</p>
-  <p style="border:1pt solid #000;padding:4pt 8pt"><b>คำชี้แจง</b> ข้อสอบฉบับนี้เป็นแบบปรนัย ๔ ตัวเลือก มี ${n} ข้อ ข้อละ ๑ คะแนน ให้นักเรียนเลือกคำตอบที่ถูกต้องที่สุดเพียงข้อเดียว</p>`;
+  <p style="border:1pt solid #000;padding:4pt 8pt"><b>คำชี้แจง</b> ${(()=>{const mcN=ex.questions.filter(q=>q.type!=='subj').length,subjN=n-mcN,parts=[];if(mcN)parts.push(`ปรนัย ๔ ตัวเลือก ${mcN} ข้อ`);if(subjN)parts.push(`อัตนัย ${subjN} ข้อ`);return parts.join(' · ')+' ข้อละ ๑ คะแนน'})()}</p>`;
   ex.questions.forEach((q,i)=>{
-    b+=`<p style="margin:10pt 0 2pt 0"><b>${i+1}.</b> ${esc(q.q)}</p>`+q.choices.map((c,j)=>`<p style="margin:0 0 0 28pt">${L[j]}. ${esc(clean(c))}</p>`).join('');
+    if(q.type==='subj'){
+      b+=`<p style="margin:10pt 0 2pt 0"><b>${i+1}.</b> ${esc(q.q)}</p>`+Array.from({length:4}).map(()=>`<p style="margin:0 0 10pt 4pt;border-bottom:1pt dotted #000">&nbsp;</p>`).join('');
+    }else{
+      b+=`<p style="margin:10pt 0 2pt 0"><b>${i+1}.</b> ${esc(q.q)}</p>`+q.choices.map((c,j)=>`<p style="margin:0 0 0 28pt">${L[j]}. ${esc(clean(c))}</p>`).join('');
+    }
   });
   b+=`<p style="text-align:center;margin-top:16pt">--- หมดคำถาม ---</p>`;
   if(withAns){
+    const mcQs=ex.questions.map((q,i)=>({q,i})).filter(x=>x.q.type!=='subj');
     b+=`<br style="page-break-before:always;mso-break-type:page-break"><h2 style="text-align:center">เฉลยข้อสอบ</h2><p style="text-align:center">วิชา${esc(o.subject)} ${esc(o.grade)}</p>`;
-    for(let s=0;s<n;s+=10){
-      const part=ex.questions.slice(s,s+10);
-      b+=`<table style="width:100%;border-collapse:collapse;margin:8pt 0"><tr>${part.map((_,i)=>`<th style="border:1pt solid #000;padding:2pt 4pt">${s+i+1}</th>`).join('')}</tr><tr>${part.map(q=>`<td style="border:1pt solid #000;padding:2pt 4pt;text-align:center">${L[q.answer]}</td>`).join('')}</tr></table>`;
+    for(let s=0;s<mcQs.length;s+=10){
+      const part=mcQs.slice(s,s+10);
+      b+=`<table style="width:100%;border-collapse:collapse;margin:8pt 0"><tr>${part.map(x=>`<th style="border:1pt solid #000;padding:2pt 4pt">${x.i+1}</th>`).join('')}</tr><tr>${part.map(x=>`<td style="border:1pt solid #000;padding:2pt 4pt;text-align:center">${L[x.q.answer]}</td>`).join('')}</tr></table>`;
     }
-    b+=`<p><b>เฉลยละเอียด</b></p>`+ex.questions.map((q,i)=>`<p style="margin:0 0 4pt 0"><b>ข้อ ${i+1}. ตอบ ${L[q.answer]}</b>${q.topic?` <i>(${esc(q.topic)})</i>`:''} — ${esc(q.explanation)}</p>`).join('');
+    b+=`<p><b>เฉลยละเอียด</b></p>`+ex.questions.map((q,i)=>q.type==='subj'?
+      `<p style="margin:0 0 4pt 0"><b>ข้อ ${i+1}. (อัตนัย)</b>${q.topic?` <i>(${esc(q.topic)})</i>`:''} — แนวคำตอบ: ${esc(q.modelAnswer||'')}</p>`:
+      `<p style="margin:0 0 4pt 0"><b>ข้อ ${i+1}. ตอบ ${L[q.answer]}</b>${q.topic?` <i>(${esc(q.topic)})</i>`:''} — ${esc(q.explanation||'')}</p>`
+    ).join('');
   }
   const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${esc(title)}</title>
 <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
@@ -733,21 +793,35 @@ function detMsg(t,type){const m=$('detMsg');m.className='msg '+(type||'');m.text
 function renderEditList(){
   let h=`<label>ชื่อแบบทดสอบ</label><input id="detTitle" value="${esc(curEdit.title||'')}">`;
   curEdit.questions.forEach((q,i)=>{
-    h+=`<div class="eq" data-i="${i}"><div class="hdr"><b>ข้อ ${i+1}</b><button data-del="${i}" class="ghost" style="color:var(--bad);border-color:var(--bad)">ลบข้อนี้</button></div>
-    <label>โจทย์</label><textarea class="fq">${esc(q.q)}</textarea>`;
-    q.choices.forEach((c,j)=>{
-      h+=`<div class="eqr"><input type="radio" name="ans${i}" value="${j}" ${j===q.answer?'checked':''}><span>${L[j]}</span><input type="text" class="fc" value="${esc(c)}"></div>`;
+    const isSubj=q.type==='subj';
+    h+=`<div class="eq" data-i="${i}"><div class="hdr"><b>ข้อ ${i+1}</b><div style="display:flex;gap:8px;align-items:center">
+      <select class="ftype" style="width:auto"><option value="mc" ${!isSubj?'selected':''}>ปรนัย</option><option value="subj" ${isSubj?'selected':''}>อัตนัย</option></select>
+      <button data-del="${i}" class="ghost" style="color:var(--bad);border-color:var(--bad)">ลบข้อนี้</button></div></div>
+    <label>โจทย์</label><textarea class="fq">${esc(q.q)}</textarea>
+    <div class="mcPart" ${isSubj?'hidden':''}>`;
+    const choices=isSubj?['','','','']:q.choices;
+    choices.forEach((c,j)=>{
+      h+=`<div class="eqr"><input type="radio" name="ans${i}" value="${j}" ${(!isSubj&&j===q.answer)?'checked':''}><span>${L[j]}</span><input type="text" class="fc" value="${esc(c)}"></div>`;
     });
-    h+=`<label>คำอธิบายเฉลย</label><textarea class="fe">${esc(q.explanation||'')}</textarea></div>`;
+    h+=`<label>คำอธิบายเฉลย</label><textarea class="fe">${esc(isSubj?'':(q.explanation||''))}</textarea></div>
+    <div class="subjPart" ${isSubj?'':'hidden'}>
+      <label>แนวคำตอบ / เกณฑ์การให้คะแนน</label><textarea class="fma">${esc(isSubj?(q.modelAnswer||''):'')}</textarea>
+    </div></div>`;
   });
   $('detEditList').innerHTML=h;
   $('detEditList').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{curEdit.questions.splice(+b.dataset.del,1);renderEditList()});
+  $('detEditList').querySelectorAll('.ftype').forEach(sel=>sel.onchange=()=>{
+    const box=sel.closest('.eq');
+    const isSubj=sel.value==='subj';
+    box.querySelector('.mcPart').hidden=isSubj;
+    box.querySelector('.subjPart').hidden=!isSubj;
+  });
 }
 $('detEdit').onclick=()=>{
   $('detView').hidden=true;$('detEditWrap').hidden=false;renderEditList();
 };
 $('detAddQ').onclick=()=>{
-  curEdit.questions.push({topic:'',q:'',choices:['','','',''],answer:0,explanation:''});
+  curEdit.questions.push({type:'mc',topic:'',q:'',choices:['','','',''],answer:0,explanation:''});
   renderEditList();
 };
 $('detSave').onclick=async()=>{
@@ -756,14 +830,22 @@ $('detSave').onclick=async()=>{
   const qs=[];
   blocks.forEach(b=>{
     const i=+b.dataset.i;
+    const type=b.querySelector('.ftype').value;
     const qtext=b.querySelector('.fq').value.trim();
-    const choices=Array.from(b.querySelectorAll('.fc')).map(x=>x.value.trim());
-    const ansEl=b.querySelector(`input[name=ans${i}]:checked`);
-    const answer=ansEl?+ansEl.value:0;
-    const explanation=b.querySelector('.fe').value.trim();
-    if(qtext&&choices.every(Boolean))qs.push({topic:curEdit.questions[i]?.topic||'',q:qtext,choices,answer,explanation});
+    const topic=curEdit.questions[i]?.topic||'';
+    if(!qtext)return;
+    if(type==='subj'){
+      const modelAnswer=b.querySelector('.fma').value.trim();
+      if(modelAnswer)qs.push({type:'subj',topic,q:qtext,modelAnswer});
+    }else{
+      const choices=Array.from(b.querySelectorAll('.fc')).map(x=>x.value.trim());
+      const ansEl=b.querySelector(`input[name=ans${i}]:checked`);
+      const answer=ansEl?+ansEl.value:0;
+      const explanation=b.querySelector('.fe').value.trim();
+      if(choices.every(Boolean))qs.push({type:'mc',topic,q:qtext,choices,answer,explanation});
+    }
   });
-  if(!qs.length){detMsg('ต้องมีอย่างน้อย 1 ข้อ และกรอกโจทย์/ตัวเลือกให้ครบ','err');return}
+  if(!qs.length){detMsg('ต้องมีอย่างน้อย 1 ข้อ และกรอกข้อมูลให้ครบ (ปรนัยต้องมีตัวเลือกครบ 4 ข้อ / อัตนัยต้องมีแนวคำตอบ)','err');return}
   curEdit.questions=qs;
   try{
     await DB.save(curEdit);
@@ -775,10 +857,19 @@ $('detSave').onclick=async()=>{
   }catch(e){detMsg('บันทึกไม่สำเร็จ: '+e.message,'err')}
 };
 
-// ---------- ตรวจข้อสอบด้วยกล้อง (OMR กึ่งอัตโนมัติ) ----------
-function bubbleLayout(count){
-  // คืนตำแหน่งวงกลมแต่ละข้อเป็น % ของพื้นที่กระดาษคำตอบ (0-100), ใช้ทั้งพิมพ์และตอนตรวจภาพ
+// ---------- ตรวจข้อสอบด้วยกล้อง (OMR กึ่งอัตโนมัติ — เฉพาะส่วนปรนัย) ----------
+function mcQuestionNumbers(exam){
+  // คืนรายการเลขข้อ (1-based) เฉพาะข้อปรนัย เรียงตามลำดับจริงในข้อสอบ
+  return exam.questions.map((q,i)=>q.type!=='subj'?i+1:null).filter(x=>x!==null);
+}
+function subjQuestions(exam){
+  return exam.questions.map((q,i)=>({q,i})).filter(x=>x.q.type==='subj');
+}
+function bubbleLayout(numbers){
+  // คืนตำแหน่งวงกลมแต่ละข้อปรนัยเป็น % ของพื้นที่กระดาษคำตอบ (0-100), ใช้ทั้งพิมพ์และตอนตรวจภาพ
   // เผื่อพื้นที่หัวกระดาษแบบทางการ (ชื่อโรงเรียน/ชื่อ-สกุล/ชั้น/เลขที่/คำชี้แจง) ไว้ด้านบน 30%
+  // numbers = อาเรย์เลขข้อจริง (1-based) ของข้อปรนัยเท่านั้น เพื่อให้เลขที่พิมพ์ตรงกับเลขข้อในข้อสอบจริง
+  const count=numbers.length;
   const cols=count>15?2:1;
   const perCol=Math.ceil(count/cols);
   const yTop=38,yBot=90,xColW=96/cols;
@@ -790,24 +881,26 @@ function bubbleLayout(count){
     const xBase=2+col*xColW;
     const numX=xBase+3;
     const bx=[xBase+9,xBase+9+6,xBase+9+12,xBase+9+18].map(x=>Math.min(x,98));
-    pos.push({q:i,y,numX,bx});
+    pos.push({q:numbers[i]-1,num:numbers[i],y,numX,bx});
   }
   return pos;
 }
 function answerSheetHTML(exam){
-  const n=exam.questions.length,o=exam.meta,pos=bubbleLayout(n);
+  const nums=mcQuestionNumbers(exam);
+  const n=nums.length,o=exam.meta,pos=bubbleLayout(nums);
+  const subjN=exam.questions.length-n;
   let b=`<div class="cm tl"></div><div class="cm tr"></div><div class="cm bl"></div><div class="cm br"></div>
   <div class="ohd">
     ${o.org?`<div class="oorg">${esc(o.org)}</div>`:''}
     <div class="otitle">กระดาษคำตอบ</div>
-    <div class="ometa">วิชา${esc(o.subject)} ${esc(o.grade)} · ${n} ข้อ${o.term?` · ${esc(o.term)}`:''}</div>
+    <div class="ometa">วิชา${esc(o.subject)} ${esc(o.grade)} · ${n} ข้อปรนัย${subjN?` (มีอัตนัยอีก ${subjN} ข้อ เขียนตอบแยก)`:''}${o.term?` · ${esc(o.term)}`:''}</div>
     <div class="ofields">
       <div><b>ชื่อ-นามสกุล</b><i class="fn">&nbsp;</i><b style="width:6%;text-align:right">ชั้น</b><i class="fc">&nbsp;</i><b style="width:8%;text-align:right">เลขที่</b><i class="fno">&nbsp;</i></div>
     </div>
     <div class="oinst">ฝนวงกลมคำตอบที่ถูกต้องให้เต็มวงด้วยดินสอ 2B หรือปากกาสีเข้ม ห้ามขีดฆ่า/ทำเครื่องหมายอื่นนอกวงกลม</div>
   </div>`;
   pos.forEach(p=>{
-    b+=`<div class="onum" style="left:${p.numX}%;top:${p.y}%">${p.q+1}</div>`;
+    b+=`<div class="onum" style="left:${p.numX}%;top:${p.y}%">${p.num}</div>`;
     p.bx.forEach((x,j)=>{b+=`<div class="obub" style="left:${x}%;top:${p.y}%">${L[j]}</div>`});
   });
   return `<div class="osheetOuter"><div class="sheetA5"><div class="osheet" id="bubbleSheet">${b}</div></div></div>`;
@@ -828,6 +921,7 @@ $('sheetModal').addEventListener('click',e=>{if(e.target.id==='sheetModal')close
 
 $('goSheet').onclick=()=>{
   const ex=gradeExamCache;if(!ex)return;
+  if(!mcQuestionNumbers(ex).length)return gmsg('ข้อสอบชุดนี้ไม่มีข้อปรนัย จึงไม่มีกระดาษคำตอบแบบฝนวงกลม (ข้ออัตนัยต้องตรวจด้วยตนเองจากกระดาษข้อสอบ)','err');
   openModal('กระดาษคำตอบ: '+(ex.title||''),answerSheetHTML(ex),()=>downloadSheetImage(ex));
 };
 
@@ -837,7 +931,7 @@ async function sheetToCanvas(ex){
   try{if(document.fonts&&document.fonts.ready)await document.fonts.ready}catch(e){}
   const MW=148,MH=210,DPI=200;
   const W=Math.round(MW*DPI/25.4),H=Math.round(MH*DPI/25.4);
-  const o=ex.meta,n=ex.questions.length,pos=bubbleLayout(n);
+  const o=ex.meta,nums=mcQuestionNumbers(ex),n=nums.length,pos=bubbleLayout(nums);
   const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;
   const ctx=canvas.getContext('2d');
   ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
@@ -863,7 +957,7 @@ async function sheetToCanvas(ex){
   }
   {const s=W*0.04;ctx.font=`bold ${s}px ${FONT}`;cy+=s*0.9;ctx.fillText('กระดาษคำตอบ',W/2,cy);cy+=s*0.35;}
   {
-    const t=`วิชา${o.subject} ${o.grade} · ${n} ข้อ${o.term?` · ${o.term}`:''}`;
+    const t=`วิชา${o.subject} ${o.grade} · ${n} ข้อปรนัย${o.term?` · ${o.term}`:''}`;
     const s=fitSize(t,maxTextW,W*0.025,false);
     ctx.font=`${s}px ${FONT}`;cy+=s*0.9;ctx.fillText(t,W/2,cy);cy+=s*0.75;
   }
@@ -895,7 +989,7 @@ async function sheetToCanvas(ex){
   pos.forEach(p=>{
     const y=py(p.y),numS=W*0.021;
     ctx.font=`bold ${numS}px ${FONT}`;ctx.textAlign='right';
-    ctx.fillText(String(p.q+1),px(p.numX),y+numS*0.35);
+    ctx.fillText(String(p.num),px(p.numX),y+numS*0.35);
     ctx.textAlign='center';
     const r=(3.2/100*W)/2,letS=W*0.019;
     p.bx.forEach((x,j)=>{
@@ -956,18 +1050,24 @@ $('gradeHistList').onclick=async e=>{
   if(card){const r=gradeHistCache.find(x=>x.id===card.dataset.rv);if(r)openResultDetail(r)}
 };
 
-function stopCam(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}$('camShot').disabled=true}
+function stopCam(){
+  if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}
+  $('camShot').disabled=true;
+  stopAutoDetect();
+  $('camwrap').classList.remove('ready');
+}
 $('camStart').onclick=async()=>{
   if(!gradeExamCache)return gmsg('กรุณาเลือกข้อสอบก่อน','err');
   try{
     camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:1280}}});
     $('camVideo').srcObject=camStream;
     $('camShot').disabled=false;gmsg('');
+    startAutoDetect();
   }catch(e){gmsg('เปิดกล้องไม่สำเร็จ: '+e.message+' — ตรวจสอบว่าอนุญาตสิทธิ์กล้องให้เว็บนี้แล้ว','err')}
 };
 function gmsg(t,type){const m=$('gradeMsg');m.className='msg '+(type||'');m.textContent=t}
 
-$('camShot').onclick=()=>{
+function doCapture(){
   const video=$('camVideo'),canvas=$('shotCanvas');
   const TW=700,TH=Math.round(700/0.7072);
   canvas.width=TW;canvas.height=TH;
@@ -979,8 +1079,9 @@ $('camShot').onclick=()=>{
   shotImg=ctx.getImageData(0,0,TW,TH);
   stopCam();
   runDetection(canvas,shotImg);
-};
-$('camRetake').onclick=()=>{$('reviewStage').hidden=true;$('camStage').hidden=false;gmsg('')};
+}
+$('camShot').onclick=()=>doCapture();
+$('camRetake').onclick=()=>{$('reviewStage').hidden=true;$('camStage').hidden=false;gmsg('');startAutoDetect()};
 
 function sampleDark(imgData,W,H,xPct,yPct){
   const cx=Math.round(W*xPct/100),cy=Math.round(H*yPct/100),r=Math.max(4,Math.round(W*0.018));
@@ -993,28 +1094,60 @@ function sampleDark(imgData,W,H,xPct,yPct){
   }
   return n?255-(sum/n):0; // ยิ่งมากยิ่งเข้ม(ฝนไว้)
 }
+
+// ---------- ตรวจจับตำแหน่งจุดดำ 4 มุมแบบเรียลไทม์ — ขอบเขียว = พร้อมถ่าย แล้วถ่ายให้อัตโนมัติ ----------
+let autoTimer=null,autoStreak=0;
+const AUTO_NEED=3; // ต้องตรงติดต่อกันกี่ครั้ง (~ทุก 280ms) ก่อนจะถ่ายให้อัตโนมัติ
+function startAutoDetect(){
+  stopAutoDetect();autoStreak=0;
+  autoTimer=setInterval(checkAlignment,280);
+}
+function stopAutoDetect(){if(autoTimer){clearInterval(autoTimer);autoTimer=null}autoStreak=0}
+function checkAlignment(){
+  const video=$('camVideo');
+  if(!video||!video.videoWidth)return;
+  const DW=200,DH=Math.round(DW/0.7072);
+  const dc=document.createElement('canvas');dc.width=DW;dc.height=DH;
+  const dctx=dc.getContext('2d');
+  const vw=video.videoWidth,vh=video.videoHeight,vR=vw/vh,tR=DW/DH;
+  let sx,sy,sw,sh;
+  if(vR>tR){sh=vh;sw=vh*tR;sx=(vw-sw)/2;sy=0}else{sw=vw;sh=vw/tR;sx=0;sy=(vh-sh)/2}
+  dctx.drawImage(video,sx,sy,sw,sh,0,0,DW,DH);
+  const img=dctx.getImageData(0,0,DW,DH);
+  // ตำแหน่งเดียวกับจุดดำ 4 มุมบนกระดาษคำตอบจริง (ดู answerSheetHTML: cm tl/tr/bl/br)
+  const cmTopPct=100-1.5-4*(DW/DH);
+  const spots=[[1.5+2,1.5+2],[100-1.5-2,1.5+2],[1.5+2,cmTopPct+2],[100-1.5-2,cmTopPct+2]];
+  const darks=spots.map(([x,y])=>sampleDark(img,DW,DH,x,y));
+  const ok=darks.every(d=>d>125);
+  $('camwrap').classList.toggle('ready',ok);
+  $('camHintText').textContent=ok?'✓ ตำแหน่งพอดีแล้ว กำลังถ่ายภาพ...':'จัดจุดดำ 4 มุมของกระดาษคำตอบให้ตรงกับกรอบมุมสีขาว';
+  if(ok){
+    autoStreak++;
+    if(autoStreak>=AUTO_NEED){stopAutoDetect();doCapture()}
+  }else autoStreak=0;
+}
 let reviewAns=[];
 function runDetection(canvas,imgData){
-  const n=gradeExamCache.questions.length,pos=bubbleLayout(n),W=canvas.width,H=canvas.height;
+  const nums=mcQuestionNumbers(gradeExamCache),pos=bubbleLayout(nums),W=canvas.width,H=canvas.height;
   reviewAns=pos.map(p=>{
     const darks=p.bx.map(x=>sampleDark(imgData,W,H,x,p.y));
     const maxD=Math.max(...darks),sorted=[...darks].sort((a,b)=>b-a);
     const picked=darks.indexOf(maxD);
     const confident=maxD>60&&(maxD-sorted[1])>20;
-    return{q:p.q,picked,confident};
+    return{q:p.q,num:p.num,picked,confident};
   });
   renderReview();
+  renderSubjStage();
   $('camStage').hidden=true;$('reviewStage').hidden=false;
 }
 function renderReview(){
-  const n=gradeExamCache.questions.length;
+  if(!reviewAns.length){$('reviewList').innerHTML='<p class="note">ข้อสอบชุดนี้ไม่มีข้อปรนัย</p>';return}
   let h='';
-  for(let i=0;i<n;i++){
-    const r=reviewAns[i];
-    h+=`<div class="rv${r.confident?'':' unsure'}" data-i="${i}"><span class="rn">${i+1}.</span><div class="rb">`+
+  reviewAns.forEach((r,i)=>{
+    h+=`<div class="rv${r.confident?'':' unsure'}" data-i="${i}"><span class="rn">${r.num}.</span><div class="rb">`+
       [0,1,2,3].map(j=>`<button data-j="${j}" class="${r.picked===j?'sel':''}">${L[j]}</button>`).join('')+
       `</div>${r.confident?'':'<span class="tag2">⚠ ไม่มั่นใจ ตรวจทานด้วย</span>'}</div>`;
-  }
+  });
   $('reviewList').innerHTML=h;
   $('reviewList').querySelectorAll('.rv').forEach(row=>{
     row.querySelectorAll('button').forEach(btn=>btn.onclick=()=>{
@@ -1024,13 +1157,25 @@ function renderReview(){
     });
   });
 }
+function renderSubjStage(){
+  const subjs=subjQuestions(gradeExamCache);
+  if(!subjs.length){$('subjStage').hidden=true;return}
+  $('subjStage').hidden=false;
+  $('subjMaxLabel').textContent=subjs.length;
+  $('subjScoreInput').max=subjs.length;
+  $('subjScoreInput').value=0;
+  $('subjList').innerHTML=subjs.map(x=>`<div class="rv" style="display:block"><b>ข้อ ${x.i+1}.</b> ${esc(x.q.q)}<br><span class="note">แนวคำตอบ: ${esc(x.q.modelAnswer||'')}</span></div>`).join('');
+}
 function resultLabel(r){
   return esc(r.studentName||'ไม่ระบุชื่อ')+(r.copyIndex>0?` <span style="color:#b5790a">(สำเนา ${r.copyIndex})</span>`:'');
 }
 $('gradeSave').onclick=async()=>{
   const ex=gradeExamCache;if(!ex)return;
-  let score=0;
-  reviewAns.forEach((r,i)=>{if(r.picked===ex.questions[i].answer)score++});
+  let mcScore=0;
+  reviewAns.forEach(r=>{if(r.picked===ex.questions[r.q].answer)mcScore++});
+  const subjs=subjQuestions(ex);
+  let subjScore=Math.max(0,Math.min(subjs.length,parseInt($('subjScoreInput').value)||0));
+  const mcTotal=reviewAns.length,subjTotal=subjs.length,score=mcScore+subjScore,total=mcTotal+subjTotal;
   const studentName=$('gradeName').value.trim();
   let copyIndex=0;
   if(studentName){
@@ -1040,11 +1185,13 @@ $('gradeSave').onclick=async()=>{
     }catch(e){}
   }
   const result={id:Date.now().toString(36),examId:ex.id,examTitle:ex.title||'',subject:ex.meta.subject||'',grade:ex.meta.grade||'',
-    studentName,copyIndex,answers:reviewAns.map(r=>r.picked),score,total:ex.questions.length,created:Date.now()};
+    studentName,copyIndex,mcIndexes:reviewAns.map(r=>r.q),answers:reviewAns.map(r=>r.picked),
+    mcScore,mcTotal,subjScore,subjTotal,score,total,created:Date.now()};
   try{
     await RDB.save(result);
     $('reviewStage').hidden=true;$('scoreStage').hidden=false;
-    $('scoreBig').innerHTML=`${resultLabel(result)}<br>ได้ ${score} / ${ex.questions.length} คะแนน`;
+    const breakdown=subjTotal?`<br><small>ปรนัย ${mcScore}/${mcTotal} · อัตนัย ${subjScore}/${subjTotal}</small>`:'';
+    $('scoreBig').innerHTML=`${resultLabel(result)}<br>ได้ ${score} / ${total} คะแนน${breakdown}`;
     loadGradeHist();
   }catch(e){gmsg('บันทึกคะแนนไม่สำเร็จ: '+e.message,'err')}
 };
@@ -1056,17 +1203,22 @@ async function getExamById(id){
 }
 async function openResultDetail(result){
   const ex=await getExamById(result.examId);
-  let h=`<div style="margin-bottom:12px"><b>${resultLabel(result)}</b> — ${result.score}/${result.total} คะแนน<br>
+  const hasSubjInfo=result.subjTotal!==undefined;
+  const breakdown=hasSubjInfo&&result.subjTotal?` (ปรนัย ${result.mcScore}/${result.mcTotal} · อัตนัย ${result.subjScore}/${result.subjTotal})`:'';
+  let h=`<div style="margin-bottom:12px"><b>${resultLabel(result)}</b> — ${result.score}/${result.total} คะแนน${breakdown}<br>
     <small class="note">${esc(result.examTitle||'')} · ${esc(result.subject||'')} ${esc(result.grade||'')} · ${new Date(result.created).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})}</small></div>`;
   if(!ex)h+=`<p class="msg err" style="display:block">ไม่พบข้อสอบต้นฉบับแล้ว (อาจถูกลบ) แสดงได้เฉพาะคำตอบที่ฝนไว้ ไม่มีเฉลยเทียบ</p>`;
-  (result.answers||[]).forEach((picked,i)=>{
-    const q=ex?ex.questions[i]:null;
+  h+=`<h2 style="border:0">ส่วนปรนัย</h2>`;
+  const mcIdx=result.mcIndexes||(result.answers||[]).map((_,i)=>i); // รองรับผลเก่าก่อนมีฟิลด์ mcIndexes
+  (result.answers||[]).forEach((picked,k)=>{
+    const qi=mcIdx[k];
+    const q=ex?ex.questions[qi]:null;
     const isRight=q&&picked===q.answer;
     const pickedTxt=(picked===null||picked===undefined)?'ไม่ได้ตอบ/อ่านไม่ได้':`${L[picked]}${q?' — '+esc(clean(q.choices[picked])):''}`;
     const borderC=q?(isRight?'var(--ok)':'var(--bad)'):'var(--line)';
     const bgC=q?(isRight?'var(--okbg)':'var(--badbg)'):'transparent';
     h+=`<div class="rv" style="border-color:${borderC};background:${bgC}">
-      <span class="rn">${i+1}.</span>
+      <span class="rn">${qi+1}.</span>
       <div style="flex:1">
         <div>คำตอบของนักเรียน: <b>${pickedTxt}</b></div>
         ${q?`<div style="font-size:.85rem;color:var(--mute)">เฉลย: ${L[q.answer]} — ${esc(clean(q.choices[q.answer]))}</div>`:''}
@@ -1074,6 +1226,13 @@ async function openResultDetail(result){
       ${q?`<span style="font-weight:700;color:${isRight?'var(--ok)':'var(--bad)'}">${isRight?'✓ ถูก':'✗ ผิด'}</span>`:''}
     </div>`;
   });
+  if(ex){
+    const subjs=subjQuestions(ex);
+    if(subjs.length){
+      h+=`<h2>ส่วนอัตนัย <small class="note" style="font-weight:400">(ตรวจด้วยตนเอง ได้คะแนนรวม ${result.subjScore??'-'}/${result.subjTotal??subjs.length})</small></h2>`;
+      subjs.forEach(x=>{h+=`<div class="rv" style="display:block"><b>ข้อ ${x.i+1}.</b> ${esc(x.q.q)}<br><span class="note">แนวคำตอบ: ${esc(x.q.modelAnswer||'')}</span></div>`});
+    }
+  }
   openModal('ผลการตรวจ',h,null);
 }
 $('gradeAgain').onclick=()=>{$('gradeName').value='';resetGradeStages()};
